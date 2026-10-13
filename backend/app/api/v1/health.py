@@ -14,7 +14,7 @@ def health() -> dict:
         "version": settings.version,
         "env": settings.env,
         "models": {
-            "stt": "loaded" if get_stt_service().is_loaded else "not_loaded",
+            "stt": get_stt_service().loaded_engines(),
             "tts": get_tts_service().loaded_languages(),
         },
     }

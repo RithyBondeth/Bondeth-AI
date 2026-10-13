@@ -3,7 +3,6 @@ uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
 python-multipart==0.0.20
 faster-whisper==1.2.1
-khmercut==0.2.0
 torch==2.14.1
 transformers==5.19.0
 scipy==1.17.1
