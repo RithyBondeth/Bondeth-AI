@@ -1,0 +1,52 @@
+import pytest
+
+from app.text.khmer_normalizer import normalize_khmer, verbalize_int
+
+
+@pytest.mark.parametrize(
+    "n, expected",
+    [
+        (0, "សូន្យ"),
+        (7, "ប្រាំពីរ"),
+        (10, "ដប់"),
+        (11, "ដប់មួយ"),
+        (25, "ម្ភៃប្រាំ"),
+        (100, "មួយរយ"),
+        (125, "មួយរយម្ភៃប្រាំ"),
+        (1_500, "មួយពាន់ប្រាំរយ"),
+        (25_000, "ពីរម៉ឺនប្រាំពាន់"),
+        (100_000, "មួយសែន"),
+        (2_500_000, "ពីរលានប្រាំសែន"),
+        (1_000_000_000, "មួយពាន់លាន"),
+        (2026, "ពីរពាន់ម្ភៃប្រាំមួយ"),
+    ],
+)
+def test_verbalize_int(n, expected):
+    assert verbalize_int(n) == expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("$25", "ម្ភៃប្រាំដុល្លារ"),
+        ("25$", "ម្ភៃប្រាំដុល្លារ"),
+        ("$25.50", "ម្ភៃប្រាំដុល្លារ ហាសិបសេន"),
+        ("$1,000", "មួយពាន់ដុល្លារ"),
+        ("4000៛", "បួនពាន់រៀល"),
+        ("៛4,000", "បួនពាន់រៀល"),
+        ("20%", "ម្ភៃភាគរយ"),
+        ("3.75", "បីចុចប្រាំពីរប្រាំ"),
+        ("៥", "ប្រាំ"),
+        ("១២៣", "មួយរយម្ភៃបី"),
+        ("13/10/2026", "ថ្ងៃទីដប់បី ខែតុលា ឆ្នាំពីរពាន់ម្ភៃប្រាំមួយ"),
+        ("តម្លៃ $25 ប៉ុណ្ណោះ", "តម្លៃ ម្ភៃប្រាំដុល្លារ ប៉ុណ្ណោះ"),
+        ("សួស្តី", "សួស្តី"),
+    ],
+)
+def test_normalize_khmer(text, expected):
+    assert normalize_khmer(text) == expected
+
+
+def test_invalid_date_falls_back_to_numbers():
+    # 45 is not a valid day, so it is read as plain numbers instead of a date.
+    assert "ថ្ងៃទី" not in normalize_khmer("45/13/2026")
