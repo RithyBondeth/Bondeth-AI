@@ -34,11 +34,12 @@ def _dollars(amount: str) -> str:
     return words
 
 
-def normalize_english(text: str) -> str:
+def normalize_english(text: str, lowercase: bool = True) -> str:
+    """Spell out numbers and symbols. MMS needs lowercase; other engines keep casing."""
     text = _DOLLAR_RE.sub(lambda m: _dollars(m[1] or m[2]), text)
     text = _RIEL_RE.sub(lambda m: _words(m[1] or m[2]) + " riel", text)
     text = _PERCENT_RE.sub(lambda m: _words(m[1]) + " percent", text)
     text = _ORDINAL_RE.sub(lambda m: num2words(int(m[1]), to="ordinal"), text)
     text = _NUM_RE.sub(lambda m: _words(m[0]), text)
     text = text.replace("&", " and ")
-    return text.lower()
+    return text.lower() if lowercase else text

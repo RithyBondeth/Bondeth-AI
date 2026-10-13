@@ -39,6 +39,18 @@ class Settings(BaseSettings):
     tts_max_chars: int = 2000
     tts_preload: bool = False
 
+    # Voice cloning (OmniVoice). NOTE: model weights are CC-BY-NC (non-commercial);
+    # swap the engine (e.g. VoxCPM2, Apache-2.0, needs a GPU) before charging for it.
+    clone_model: str = "k2-fsa/OmniVoice"
+    clone_model_revision: str = "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+    clone_device: str = "auto"  # auto -> cuda, then mps (Apple Silicon), then cpu
+    clone_max_chars: int = 500
+    clone_ref_min_s: float = 3.0
+    clone_ref_max_s: float = 30.0
+    clone_max_queue: int = 10  # pending jobs before new requests get 503
+    clone_result_ttl_s: int = 3600  # finished jobs and their audio are deleted after this
+    clone_preload: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
