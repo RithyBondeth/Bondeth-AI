@@ -5,10 +5,11 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_health():
-    res = client.get("/api/v1/health")
-    assert res.status_code == 200
-    assert res.json()["status"] == "ok"
+def test_health(client):  # the fixture client runs the full lifespan (DB + Redis)
+    body = client.get("/api/v1/health").json()
+    assert body["status"] == "ok"
+    assert body["database"] == body["redis"] == "ok"
+    assert body["clone_queue"] == 0
 
 
 def test_normalize_endpoint():
