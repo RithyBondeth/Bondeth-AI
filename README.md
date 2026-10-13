@@ -12,6 +12,7 @@
 
 ---
 
+
 ## 🚀 Overview
 **Bondeth AI** (បណ្ឌិត AI) is an advanced, fully open-source voice intelligence platform engineered to eliminate literacy, typing friction, and accessibility barriers in Cambodia. Traditional typing in Khmer script is slowed down by complex, multi-layered keyboard layouts (*ជើងអក្សរ* and stacked diacritics). Bondeth AI bridges this gap by providing a high-performance, bilingual suite supporting **Speech-to-Text (STT)**, **Text-to-Speech (TTS)**, and **Zero-Shot Voice Cloning** for both Khmer and English.
 
