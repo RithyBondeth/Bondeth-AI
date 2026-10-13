@@ -10,7 +10,8 @@ from app.config import get_settings
 from app.deps import get_stt_service
 from app.main import app
 from app.services.stt import Segment, Transcription
-from app.text.khmer_segmenter import segment_khmer, segment_words
+from app.services.khmer_stt import clean_khmer_output
+from app.services.stt import SttService
 
 
 class FakeStt:
@@ -41,9 +42,40 @@ def fake_stt():
 client = TestClient(app)
 
 
-def test_segment_khmer_drops_whitespace_tokens():
-    assert segment_words("សួស្តី ពិភពលោក") == ["សួស្តី", "ពិភពលោក"]
-    assert segment_khmer("ខ្ញុំស្រលាញ់ភាសាខ្មែរ") == "ខ្ញុំ ស្រលាញ់ ភាសា ខ្មែរ"
+def test_clean_khmer_output():
+    text, segmented = clean_khmer_output("ការ ដើម ឡើយ ; នៅ ភាគ ខាងកើត")
+    assert text == "ការដើមឡើយ នៅភាគខាងកើត"
+    assert segmented == "ការ ដើម ឡើយ នៅ ភាគ ខាងកើត"
+
+
+def test_clean_khmer_output_keeps_spaces_around_latin_and_drops_empty_groups():
+    text, segmented = clean_khmer_output(" ; ភ្នំ vinson massif ; 4892 ; ម៉ែត្រ ;")
+    assert text == "ភ្នំ vinson massif 4892 ម៉ែត្រ"
+    assert segmented == "ភ្នំ vinson massif 4892 ម៉ែត្រ"
+
+
+class _FakeWhisper:
+    def __init__(self, probs):
+        self.probs = probs
+
+    def detect_language(self, audio):
+        return None, None, self.probs
+
+
+@pytest.mark.parametrize(
+    "probs, expected",
+    [
+        ([("en", 0.99), ("es", 0.01)], ("en", 0.99)),
+        ([("vi", 0.28), ("th", 0.10), ("en", 0.05)], ("km", 0.95)),  # how stock Whisper "hears" Khmer
+        ([("en", 0.36), ("vi", 0.33)], ("km", 0.64)),  # low-confidence English is still Khmer
+        ([("th", 0.9)], ("km", 1.0)),
+    ],
+)
+def test_auto_language_detection(probs, expected):
+    stt = SttService(get_settings())
+    stt._whisper = _FakeWhisper(probs)
+    lang, p = stt._detect(None)
+    assert (lang, round(p, 2)) == expected
 
 
 def test_stt_success_and_temp_file_cleanup(fake_stt):
@@ -85,7 +117,7 @@ def test_stt_rejects_oversized_file(fake_stt, monkeypatch):
     assert not fake_stt.calls
 
 
-# --- Real model test (downloads ~1.6 GB on first run) ---------------------------------
+# --- Real model tests (download ~1.6 GB + ~0.8 GB on first run) -----------------------
 
 @pytest.mark.skipif(not os.getenv("BONDETH_RUN_MODEL_TESTS"), reason="set BONDETH_RUN_MODEL_TESTS=1")
 @pytest.mark.skipif(shutil.which("say") is None, reason="needs macOS `say` to synthesize audio")
@@ -99,3 +131,20 @@ def test_real_whisper_english(tmp_path):
     body = res.json()
     assert body["detected_language"] == "en"
     assert "test" in body["text"].lower()
+
+
+@pytest.mark.skipif(not os.getenv("BONDETH_RUN_MODEL_TESTS"), reason="set BONDETH_RUN_MODEL_TESTS=1")
+def test_real_khmer_via_tts_roundtrip():
+    """Khmer speech must be detected as Khmer and transcribed in Khmer script.
+
+    Exact words are not asserted: the MMS Khmer voice is not very clear, so this
+    round trip is noisy. Accuracy is measured on real speech by scripts/eval_khmer_stt.py.
+    """
+    speech = client.post("/api/v1/tts", json={"text": "ខ្ញុំស្រលាញ់ភាសាខ្មែរ។", "lang": "km"})
+    assert speech.status_code == 200, speech.text
+    res = client.post("/api/v1/stt", files={"file": ("km.wav", speech.content, "audio/wav")})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["detected_language"] == "km"
+    letters = [ch for ch in body["text"] if not ch.isspace()]
+    assert letters and sum("\u1780" <= ch <= "\u17FF" for ch in letters) / len(letters) > 0.9
