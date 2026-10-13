@@ -120,6 +120,9 @@ class VoiceCloneService:
 
     def run(self, job: CloneJob) -> None:
         """Worker entry point: transcribe the reference if needed, then synthesize."""
+        if not job.reference_path.exists():
+            # e.g. the saved voice was deleted while this job was waiting
+            raise InvalidReference("The reference audio is no longer available.")
         if not job.ref_text:
             transcript = self._stt.transcribe(job.reference_path)
             if not transcript.text.strip():

@@ -1,7 +1,10 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_JWT_SECRET = "dev-insecure-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -9,14 +12,27 @@ class Settings(BaseSettings):
 
     app_name: str = "Bondeth AI API"
     version: str = "0.1.0"
-    env: str = "development"
+    env: str = "development"  # development | test | production
 
     # Explicit origins only: wildcard + credentials is rejected by browsers anyway.
     cors_origins: list[str] = ["http://localhost:3000"]
 
     model_dir: Path = Path("./models")
     tmp_dir: Path = Path("./tmp")
+    data_dir: Path = Path("./data")  # persistent files: saved voices, clone job audio
     max_upload_mb: int = 25
+
+    # Infrastructure (see docker-compose.yml)
+    database_url: str = "postgresql+asyncpg://bondeth:bondeth@localhost:5432/bondeth"
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Auth. Access tokens are short-lived; refresh tokens are single-use and revocable.
+    jwt_secret: str = DEV_JWT_SECRET
+    jwt_algorithm: str = "HS256"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+    login_max_attempts: int = 10  # per email + IP, within the window below
+    login_window_s: int = 900
 
     # Speech-to-text. English (and language detection) uses stock faster-whisper.
     stt_model: str = "large-v3-turbo"
@@ -50,6 +66,14 @@ class Settings(BaseSettings):
     clone_max_queue: int = 10  # pending jobs before new requests get 503
     clone_result_ttl_s: int = 3600  # finished jobs and their audio are deleted after this
     clone_preload: bool = False
+    clone_worker_enabled: bool = True  # disable on API-only replicas that shouldn't load the model
+    max_voices_per_user: int = 10
+
+    @model_validator(mode="after")
+    def _require_real_secret_outside_dev(self):
+        if self.env not in ("development", "test") and self.jwt_secret == DEV_JWT_SECRET:
+            raise ValueError("Set BONDETH_JWT_SECRET to a long random value outside development.")
+        return self
 
 
 @lru_cache

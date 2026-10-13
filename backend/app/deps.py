@@ -1,6 +1,12 @@
-"""Shared singletons, exposed as FastAPI dependencies so tests can override them."""
+"""Shared singletons, exposed as FastAPI dependencies so tests can override them.
+
+Models are process-wide singletons (expensive to load). Connections and the
+clone queue belong to the running app and live on `app.state` (see main.py).
+"""
 
 from functools import lru_cache
+
+from fastapi import Request
 
 from app.config import get_settings
 from app.services.clone_jobs import CloneJobQueue
@@ -24,7 +30,5 @@ def get_clone_service() -> VoiceCloneService:
     return VoiceCloneService(get_settings(), get_stt_service())
 
 
-@lru_cache
-def get_clone_queue() -> CloneJobQueue:
-    s = get_settings()
-    return CloneJobQueue(get_clone_service().run, max_pending=s.clone_max_queue, ttl_s=s.clone_result_ttl_s)
+def get_clone_queue(request: Request) -> CloneJobQueue:
+    return request.app.state.clone_queue
