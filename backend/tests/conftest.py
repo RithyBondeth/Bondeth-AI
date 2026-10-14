@@ -17,7 +17,8 @@ os.environ["BONDETH_DATABASE_URL"] = os.environ.get(
     "BONDETH_TEST_DATABASE_URL", "postgresql+asyncpg://bondeth:bondeth@localhost:5432/bondeth_test")
 os.environ["BONDETH_REDIS_URL"] = os.environ.get("BONDETH_TEST_REDIS_URL", "redis://localhost:6379/15")
 os.environ["BONDETH_DATA_DIR"] = tempfile.mkdtemp(prefix="bondeth-test-data-")
-os.environ["BONDETH_CLONE_WORKER_ENABLED"] = "false"  # tests run their own worker with a fake engine
+os.environ["BONDETH_CLONE_WORKER_ENABLED"] = "false"  # tests run their own workers with fake engines
+os.environ["BONDETH_STT_WORKER_ENABLED"] = "false"
 
 import pytest  # noqa: E402
 import redis  # noqa: E402

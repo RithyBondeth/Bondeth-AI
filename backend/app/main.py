@@ -13,6 +13,7 @@ from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
 from app.limits import LimitExceeded, limit_exceeded_handler
 from app.services.clone_jobs import CloneJobQueue
+from app.services.stt_jobs import SttJobQueue
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,6 +32,10 @@ async def lifespan(app: FastAPI):
         sync_redis, get_clone_service().run, settings.data_dir / "clone_jobs",
         max_pending=settings.clone_max_queue, ttl_s=settings.clone_result_ttl_s,
     )
+    app.state.stt_queue = SttJobQueue(
+        sync_redis, get_stt_service(), settings.data_dir / "stt_jobs",
+        max_pending=settings.stt_job_max_queue, ttl_s=settings.stt_job_result_ttl_s,
+    )
 
     if settings.stt_preload:
         await run_in_threadpool(get_stt_service().load)
@@ -41,10 +46,13 @@ async def lifespan(app: FastAPI):
         await run_in_threadpool(get_clone_service().load)
     if settings.clone_worker_enabled:
         app.state.clone_queue.start_worker()
+    if settings.stt_worker_enabled:
+        app.state.stt_queue.start_worker()
 
     yield
 
     app.state.clone_queue.stop_worker()
+    app.state.stt_queue.stop_worker()
     sync_redis.close()
     await app.state.redis.aclose()
     await app.state.redis_bytes.aclose()

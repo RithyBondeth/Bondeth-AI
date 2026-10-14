@@ -145,7 +145,8 @@ class Limits:
     def resets_at(self) -> datetime:
         return self._today() + timedelta(days=1)
 
-    def _key(self, quota: Quota, caller: Caller) -> str:
+    def quota_key(self, quota: Quota, caller: Caller) -> str:
+        """The Redis counter for today's usage (job workers settle against it later)."""
         return f"quota:{quota}:{caller.key}:{self._today():%Y-%m-%d}"
 
     def limit(self, quota: Quota, caller: Caller) -> int:
@@ -154,10 +155,10 @@ class Limits:
         return getattr(self._s, f"quota_{quota}_{'user' if caller.signed_in else 'anon'}")
 
     async def used(self, quota: Quota, caller: Caller) -> int:
-        return int(await self._redis.get(self._key(quota, caller)) or 0)
+        return int(await self._redis.get(self.quota_key(quota, caller)) or 0)
 
     async def _add(self, quota: Quota, caller: Caller, amount: int) -> int:
-        key = self._key(quota, caller)
+        key = self.quota_key(quota, caller)
         async with self._redis.pipeline(transaction=True) as pipe:
             pipe.incrby(key, amount)
             pipe.expire(key, 2 * 86_400, nx=True)

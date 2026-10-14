@@ -12,6 +12,18 @@ export type SttResult = {
   transcription_id: string | null;
 };
 
+export type SttSegment = { start: number; end: number; text: string; segmented_text: string };
+
+export type SttJob = {
+  job_id: string;
+  status: "queued" | "running" | "done" | "failed";
+  queue_position: number | null;
+  error: string | null;
+  result: SttResult | null;
+  status_url: string;
+  events_url: string;
+};
+
 export type Transcription = {
   id: string;
   language_code: string;
