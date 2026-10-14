@@ -3,7 +3,7 @@
 import { Check, Copy, Download, History, Wand2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
 import { MicDoodle, NotebookDoodle, WaveformDoodle } from "@/components/doodles";
@@ -11,12 +11,15 @@ import { Intro, errorText } from "@/components/studios/shared";
 import {
   Badge, Button, EmptyState, IconButton, LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, cx, useToast,
 } from "@/components/ui";
-import { apiJson } from "@/lib/api";
+import { apiJson, streamEvents } from "@/lib/api";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
 import { useUser } from "@/lib/hooks";
-import type { Lang, SttResult } from "@/lib/types";
+import type { Lang, SttJob, SttResult, SttSegment } from "@/lib/types";
 
 type View = "text" | "words" | "timeline";
+
+/** What's known while a job runs: its place in line, then the language and segments as they arrive. */
+type Live = { position: number | null; info: { detected_language: string; duration: number } | null; segments: SttSegment[] };
 
 export function SttStudio() {
   const toast = useToast();
@@ -24,24 +27,46 @@ export function SttStudio() {
   const [clip, setClip] = useState<AudioClip | null>(null);
   const [lang, setLang] = useState<Lang>("auto");
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState<Live | null>(null);
   const [result, setResult] = useState<SttResult | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Stop following a job when leaving the page.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const transcribe = async () => {
     if (!clip) return;
+    abortRef.current?.abort();
+    const abort = (abortRef.current = new AbortController());
     const form = new FormData();
     form.append("file", clip.blob, clip.filename);
     form.append("language", lang);
     setBusy(true);
     setResult(null);
     try {
-      const res = await apiJson<SttResult>("/api/v1/stt", { method: "POST", body: form, auth: "optional" });
+      // Queued as a job so long recordings work and segments stream in as they're decoded.
+      const job = await apiJson<SttJob>("/api/v1/stt/jobs", { method: "POST", body: form, auth: "optional", signal: abort.signal });
+      setLive({ position: job.queue_position, info: null, segments: [] });
+      let final: SttResult | null = null;
+      await streamEvents(`/api/v1/stt/jobs/${job.job_id}/events`, ({ event, data }) => {
+        if (event === "info") setLive((l) => l && { ...l, info: data as Live["info"] });
+        else if (event === "segment") setLive((l) => l && { ...l, segments: [...l.segments, data as SttSegment] });
+        else if (event === "done") final = data as SttResult;
+        else if (event === "error") throw new Error((data as { error: string }).error);
+      }, { auth: "optional", signal: abort.signal });
+      if (!final) throw new Error("The transcription stopped unexpectedly. Please try again.");
+      const res: SttResult = final;
       setResult(res);
       if (!res.text) toast("No speech was found in that audio.");
       else if (res.transcription_id) toast("Saved to your history", "success");
     } catch (err) {
-      toast(errorText(err, "Transcription failed."), "error");
+      if (abort.signal.aborted) return;
+      toast(err instanceof Error && !("status" in err) ? err.message : errorText(err, "Transcription failed."), "error");
     } finally {
-      setBusy(false);
+      if (!abort.signal.aborted) {
+        setBusy(false);
+        setLive(null);
+      }
     }
   };
 
@@ -54,7 +79,13 @@ export function SttStudio() {
           <Panel>
             <PanelHeader title="Audio" km="សំឡេង" />
             <div className="space-y-4 p-5">
-              <AudioInput value={clip} onChange={(c) => { setClip(c); setResult(null); }} />
+              <AudioInput value={clip} onChange={(c) => {
+                abortRef.current?.abort();
+                setClip(c);
+                setResult(null);
+                setBusy(false);
+                setLive(null);
+              }} />
               <Button className="w-full" size="lg" onClick={transcribe} disabled={!clip} loading={busy}
                 icon={<Wand2 className="size-5" />}>
                 {busy ? "Listening closely…" : "Transcribe"}
@@ -63,13 +94,19 @@ export function SttStudio() {
           </Panel>
 
           <AnimatePresence mode="wait">
-            {busy ? (
+            {busy && live?.segments.length ? (
+              <LiveTranscript key="live" live={live} />
+            ) : busy ? (
               <motion.div key="busy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col items-center gap-3 py-8 text-sm text-ink-soft">
                 <motion.div animate={{ scaleY: [1, 0.55, 1.15, 1] }} transition={{ duration: 1.1, repeat: Infinity }}>
                   <WaveformDoodle className="h-14 w-36 text-ink" />
                 </motion.div>
-                Turning sound into words. Long clips take a little while.
+                {live?.info
+                  ? "Listening… the first words will appear here in a moment."
+                  : live?.position && live.position > 1
+                    ? `In line: ${live.position - 1} ahead of you.`
+                    : "Uploading and starting up…"}
               </motion.div>
             ) : result?.text ? (
               <Transcript key={result.text} result={result} />
@@ -93,7 +130,7 @@ export function SttStudio() {
                 <Segmented full label="Language" value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
               </Setting>
               <Setting label="Limits">
-                <p className="text-sm text-ink-soft">Up to 25 MB per file: .wav, .mp3, .m4a, .webm, .ogg, .flac.</p>
+                <p className="text-sm text-ink-soft">Up to 200 MB per file: .wav, .mp3, .m4a, .webm, .ogg, .flac. Long recordings stream in as they&apos;re transcribed.</p>
               </Setting>
             </div>
           </Panel>
@@ -115,6 +152,32 @@ export function SttStudio() {
         </aside>
       </div>
     </>
+  );
+}
+
+function LiveTranscript({ live }: { live: Live }) {
+  const isKhmer = live.info?.detected_language === "km";
+  const done = live.segments.at(-1)?.end ?? 0;
+  const share = live.info?.duration ? Math.min(done / live.info.duration, 1) : 0;
+
+  return (
+    <Panel exit={{ opacity: 0, y: -8 }}>
+      <PanelHeader title="Transcribing" km="កំពុងសរសេរ">
+        {live.info && <Badge tone="teal">{LANG_LABEL[live.info.detected_language] ?? live.info.detected_language}</Badge>}
+        {live.info && <Badge>{formatSeconds(done)} / {formatSeconds(live.info.duration)}</Badge>}
+      </PanelHeader>
+      <div className="h-1 bg-surface-2" role="progressbar" aria-label="Transcription progress"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)}>
+        <motion.div className="h-full bg-accent" initial={false} animate={{ width: `${share * 100}%` }} />
+      </div>
+      <p lang={isKhmer ? "km" : "en"} aria-live="polite" className={cx("p-5 text-lg leading-relaxed", isKhmer && "khmer")}>
+        {live.segments.map((s, i) => (
+          <motion.span key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{i > 0 && " "}{s.text}</motion.span>
+        ))}
+        <motion.span aria-hidden className="ml-1 inline-block h-5 w-0.5 translate-y-1 bg-accent"
+          animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+      </p>
+    </Panel>
   );
 }
 

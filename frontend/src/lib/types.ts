@@ -12,6 +12,18 @@ export type SttResult = {
   transcription_id: string | null;
 };
 
+export type SttSegment = { start: number; end: number; text: string; segmented_text: string };
+
+export type SttJob = {
+  job_id: string;
+  status: "queued" | "running" | "done" | "failed";
+  queue_position: number | null;
+  error: string | null;
+  result: SttResult | null;
+  status_url: string;
+  events_url: string;
+};
+
 export type Transcription = {
   id: string;
   language_code: string;
@@ -43,3 +55,16 @@ export type CloneJob = {
   status_url: string;
   audio_url: string | null;
 };
+
+export type QuotaName = "stt_seconds" | "tts_chars" | "clone_jobs";
+
+export type Usage = {
+  signed_in: boolean;
+  resets_at: string;
+  // limit and remaining are null when the server has limits switched off; clone_jobs only when signed in.
+  quotas: Partial<Record<QuotaName, { used: number; limit: number | null; remaining: number | null }>>;
+};
+
+export type ApiKey = { id: string; name: string; prefix: string; created_at: string; last_used_at: string | null };
+export type ApiKeyCreated = ApiKey & { key: string };
+export type ApiKeyUsageDay = { day: string; requests: number; stt_seconds: number; tts_chars: number; clone_jobs: number };

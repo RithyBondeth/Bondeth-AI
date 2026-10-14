@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Aurora } from "@/components/Aurora";
 import { MicDoodle, TwinVoicesDoodle } from "@/components/doodles";
 import { RecentsProvider } from "@/components/shell/Recents";
+import { UsageMeter } from "@/components/shell/UsageMeter";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconButton, cx } from "@/components/ui";
 import { API_URL, logout } from "@/lib/api";
@@ -114,6 +115,8 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
         <NavSection title="Create" items={WORKSPACES} pathname={pathname} hide={hide} />
         <NavSection title="Library" items={LIBRARY} pathname={pathname} hide={hide} locked={hydrated && !user} />
       </nav>
+
+      <UsageMeter className={cx("mx-3 mb-3", hide)} />
 
       <div className={cx("mx-3 mb-3 overflow-hidden rounded-2xl border border-line bg-surface p-4", hide)}>
         <TwinVoicesDoodle className="h-14 w-28 text-ink" />

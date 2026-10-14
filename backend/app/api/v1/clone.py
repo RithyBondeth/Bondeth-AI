@@ -13,6 +13,7 @@ from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.db import User, get_db
 from app.deps import get_clone_queue
+from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.clone_jobs import CloneJob, CloneJobQueue, JobStatus, QueueFull, RefTextSource
 from app.services.voice_clone import InvalidReference, load_reference
 from app.uploads import saved_upload
@@ -72,46 +73,51 @@ async def create_clone_job(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
     queue: CloneJobQueue = Depends(get_clone_queue),
+    caller: Caller = Depends(rate_limit("clone", signed_in=True)),
+    limits: Limits = Depends(get_limits),
 ) -> CloneJobOut:
     """Queue a cloning job using either a saved `voice_id` or an uploaded `reference_audio`.
 
     Poll `status_url` until `status` is `done`, then download `audio_url`.
+    Each queued job counts against the daily cloning allowance (see GET /usage).
     """
     if (voice_id is None) == (reference_audio is None):
         raise HTTPException(422, "Provide exactly one of voice_id or reference_audio")
     if len(text) > settings.clone_max_chars:
         raise HTTPException(413, f"Text exceeds {settings.clone_max_chars} characters")
 
-    job_id = uuid.uuid4().hex
-    common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed)
+    # One job of today's allowance, refunded if the job can't be queued.
+    async with limits.spend("clone_jobs", caller, 1):
+        job_id = uuid.uuid4().hex
+        common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed)
 
-    if voice_id is not None:
-        voice = await get_owned_voice(voice_id, user, session)  # consent was given when it was saved
-        job = CloneJob(**common, work_dir=queue.new_work_dir(job_id), voice_id=str(voice.id),
-                       reference_path=voice_audio_path(voice, settings), delete_reference=False,
-                       ref_text=voice.reference_text, ref_text_source="saved_voice")
-    else:
-        if not consent:
-            raise HTTPException(403, CONSENT_REQUIRED)
-        work_dir = queue.new_work_dir(job_id)
-        job = CloneJob(**common, work_dir=work_dir, reference_path=work_dir / "reference.wav",
-                       ref_text=(reference_text or "").strip() or None)
+        if voice_id is not None:
+            voice = await get_owned_voice(voice_id, user, session)  # consent was given when it was saved
+            job = CloneJob(**common, work_dir=queue.new_work_dir(job_id), voice_id=str(voice.id),
+                           reference_path=voice_audio_path(voice, settings), delete_reference=False,
+                           ref_text=voice.reference_text, ref_text_source="saved_voice")
+        else:
+            if not consent:
+                raise HTTPException(403, CONSENT_REQUIRED)
+            work_dir = queue.new_work_dir(job_id)
+            job = CloneJob(**common, work_dir=work_dir, reference_path=work_dir / "reference.wav",
+                           ref_text=(reference_text or "").strip() or None)
+            try:
+                async with saved_upload(reference_audio, settings.tmp_dir, settings.max_upload_mb) as path:
+                    await run_in_threadpool(load_reference, path, job.reference_path,
+                                            settings.clone_ref_min_s, settings.clone_ref_max_s)
+            except InvalidReference as exc:
+                shutil.rmtree(work_dir, ignore_errors=True)
+                raise HTTPException(422, str(exc)) from exc
+            except BaseException:
+                shutil.rmtree(work_dir, ignore_errors=True)
+                raise
+
         try:
-            async with saved_upload(reference_audio, settings.tmp_dir, settings.max_upload_mb) as path:
-                await run_in_threadpool(load_reference, path, job.reference_path,
-                                        settings.clone_ref_min_s, settings.clone_ref_max_s)
-        except InvalidReference as exc:
-            shutil.rmtree(work_dir, ignore_errors=True)
-            raise HTTPException(422, str(exc)) from exc
-        except BaseException:
-            shutil.rmtree(work_dir, ignore_errors=True)
-            raise
-
-    try:
-        await run_in_threadpool(queue.submit, job)
-    except QueueFull as exc:
-        shutil.rmtree(job.work_dir, ignore_errors=True)
-        raise HTTPException(503, str(exc), headers={"Retry-After": "30"}) from exc
+            await run_in_threadpool(queue.submit, job)
+        except QueueFull as exc:
+            shutil.rmtree(job.work_dir, ignore_errors=True)
+            raise HTTPException(503, str(exc), headers={"Retry-After": "30"}) from exc
     return _job_out(job, queue, request)
 
 

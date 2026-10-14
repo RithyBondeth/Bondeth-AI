@@ -16,6 +16,7 @@ blocking, so callers must run `transcribe` in a worker thread.
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -98,8 +99,14 @@ class SttService:
                     )
         return self._khmer
 
-    def transcribe(self, audio_path: Path, language: str | None = None) -> Transcription:
-        """Transcribe an audio file. `language=None` auto-detects between Khmer and English."""
+    def transcribe(self, audio_path: Path, language: str | None = None,
+                   on_start: Callable[[str, float, float], None] | None = None,
+                   on_segment: Callable[[Segment, str], None] | None = None) -> Transcription:
+        """Transcribe an audio file. `language=None` auto-detects between Khmer and English.
+
+        For streaming, `on_start(language, probability, duration)` is called once the
+        language is known and `on_segment(segment, segmented_text)` as each piece is decoded.
+        """
         from faster_whisper.audio import decode_audio
 
         audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
@@ -110,13 +117,18 @@ class SttService:
                 language, probability = self._detect(audio)
             else:
                 probability = 1.0
+            if on_start:
+                on_start(language, round(probability, 3), duration)
 
             if language == "en":
-                segments = self._transcribe_english(audio)
+                segments = self._transcribe_english(audio, on_segment)
                 text = " ".join(s.text for s in segments)
                 segmented = text
             else:
-                chunks = self._load_khmer().transcribe(audio)
+                def on_chunk(c):
+                    if on_segment:
+                        on_segment(Segment(c.start, c.end, c.text), c.segmented)
+                chunks = self._load_khmer().transcribe(audio, on_chunk)
                 segments = [Segment(c.start, c.end, c.text) for c in chunks]
                 text = " ".join(c.text for c in chunks)
                 segmented = " ".join(c.segmented for c in chunks)
@@ -137,7 +149,7 @@ class SttService:
             return "en", p_en
         return "km", 1.0 - p_en
 
-    def _transcribe_english(self, audio) -> list[Segment]:
+    def _transcribe_english(self, audio, on_segment: Callable[[Segment, str], None] | None = None) -> list[Segment]:
         segments_iter, _ = self._load_whisper().transcribe(
             audio,
             language="en",
@@ -145,4 +157,9 @@ class SttService:
             vad_filter=True,  # skip silence: faster and fewer hallucinations
         )
         # `segments_iter` is lazy; decoding actually happens while iterating.
-        return [Segment(round(s.start, 2), round(s.end, 2), s.text.strip()) for s in segments_iter]
+        segments = []
+        for s in segments_iter:
+            segments.append(Segment(round(s.start, 2), round(s.end, 2), s.text.strip()))
+            if on_segment:
+                on_segment(segments[-1], segments[-1].text)
+        return segments

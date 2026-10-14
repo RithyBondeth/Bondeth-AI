@@ -12,6 +12,9 @@ x-backend-env: &backend-env
   BONDETH_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bondeth}:${POSTGRES_PASSWORD:-bondeth}@postgres:5432/${POSTGRES_DB:-bondeth}
   BONDETH_REDIS_URL: redis://redis:6379/0
   BONDETH_CORS_ORIGINS: '["${PUBLIC_APP_URL:-http://localhost:3000}"]'
+  # mms/omnivoice weights are non-commercial; voxcpm (Apache-2.0) needs the GPU image.
+  BONDETH_TTS_ENGINE: ${BONDETH_TTS_ENGINE:-mms}
+  BONDETH_CLONE_ENGINE: ${BONDETH_CLONE_ENGINE:-omnivoice}
 
 services:
   postgres:
@@ -68,6 +71,9 @@ services:
       BONDETH_STT_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
       BONDETH_TTS_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
       BONDETH_CLONE_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
+      # Reverse proxies allowed to set the client IP (X-Forwarded-For); see .env.example.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      BONDETH_LIMITS_ENABLED: ${BONDETH_LIMITS_ENABLED:-true}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

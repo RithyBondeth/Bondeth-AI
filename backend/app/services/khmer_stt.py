@@ -12,6 +12,7 @@ inside a phrase) plus a word-segmented version.
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,15 +60,17 @@ class KhmerWhisperEngine:
         self._prompt = [vocab.index(t) for t in
                         ("<|startoftranscript|>", "<|km|>", "<|transcribe|>", "<|notimestamps|>")]
 
-    def transcribe(self, audio: np.ndarray) -> list[KhmerChunk]:
+    def transcribe(self, audio: np.ndarray, on_chunk: Callable[[KhmerChunk], None] | None = None) -> list[KhmerChunk]:
         from faster_whisper.vad import VadOptions, get_speech_timestamps
 
         # Split on silence into <30 s pieces so long recordings fit Whisper's window.
         spans = get_speech_timestamps(
             audio, VadOptions(max_speech_duration_s=MAX_CHUNK_S, min_silence_duration_ms=500))
         chunks: list[KhmerChunk] = []
-        for i in range(0, len(spans), self._batch_size):
-            batch = spans[i:i + self._batch_size]
+        # The first piece is decoded alone so streaming clients see text as soon as possible.
+        starts = [0, *range(1, len(spans), self._batch_size)] if spans else []
+        for i, start in enumerate(starts):
+            batch = spans[start:starts[i + 1] if i + 1 < len(starts) else len(spans)]
             feats = np.stack([self._mel(audio[s["start"]:s["end"]]) for s in batch])
             results = self._model.generate(
                 self._ct2.StorageView.from_array(feats),
@@ -81,6 +84,8 @@ class KhmerWhisperEngine:
                 if text:
                     chunks.append(KhmerChunk(
                         round(span["start"] / SAMPLE_RATE, 2), round(span["end"] / SAMPLE_RATE, 2), text, segmented))
+                    if on_chunk:
+                        on_chunk(chunks[-1])
         return chunks
 
     def _mel(self, audio: np.ndarray) -> np.ndarray:

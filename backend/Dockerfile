@@ -7,6 +7,8 @@
 FROM python:3.11-slim AS base
 
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+# true = also install the optional VoxCPM2 engine (Apache-2.0; select it with BONDETH_*_ENGINE=voxcpm).
+ARG WITH_VOXCPM=false
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/opt/venv \
@@ -20,10 +22,11 @@ WORKDIR /app
 
 # PyTorch comes from its own index (CPU or CUDA build); everything else from PyPI.
 # torch/torchaudio are installed first so the requirements pin is already satisfied.
-COPY requirements.txt .
+COPY requirements.txt requirements-voxcpm.txt ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --index-url "$TORCH_INDEX_URL" torch==2.14.1 torchaudio==2.11.0 \
- && uv pip install -r requirements.txt
+ && uv pip install -r requirements.txt \
+ && if [ "$WITH_VOXCPM" = "true" ]; then uv pip install -r requirements-voxcpm.txt; fi
 
 # CTranslate2 (faster-whisper) finds cuBLAS/cuDNN from the CUDA torch wheels here.
 # These paths simply don't exist in the CPU image, which is harmless.
@@ -49,4 +52,6 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4).status == 200 else 1)"
 
 # One worker: models are loaded per process and the clone worker assumes a single consumer.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# X-Forwarded-For is trusted only from FORWARDED_ALLOW_IPS (uvicorn's default: 127.0.0.1); trusting
+# everyone would let clients pick their own IP and dodge the per-IP rate limits and quotas.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

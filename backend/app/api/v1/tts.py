@@ -6,8 +6,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.config import Settings, get_settings
-from app.deps import get_tts_service
+from app.deps import get_tts_cache, get_tts_service
+from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
+from app.services.tts_cache import TtsCache
 
 router = APIRouter(prefix="/tts", tags=["text-to-speech"])
 
@@ -34,24 +36,41 @@ async def text_to_speech(
     req: TtsRequest,
     settings: Settings = Depends(get_settings),
     tts: TtsService = Depends(get_tts_service),
+    cache: TtsCache = Depends(get_tts_cache),
+    caller: Caller = Depends(rate_limit("tts")),
+    limits: Limits = Depends(get_limits),
 ) -> Response:
+    """Public. Counts against the daily text-to-speech allowance (see GET /usage).
+
+    Text that was already spoken at the same speed is served from a cache
+    (`X-Cache: HIT`); it still counts against the allowance.
+    """
     _check_length(req, settings)
-    try:
-        wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
-    except NothingToSpeak as exc:
-        raise HTTPException(422, str(exc)) from exc
+    _, chunks = tts.prepare(req.text, req.lang)
+    key = cache.key(chunks, req.speed)
+    async with limits.spend("tts_chars", caller, len(req.text)):
+        if cached := await cache.get(key):
+            wav, duration = cached
+        else:
+            try:
+                wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
+            except NothingToSpeak as exc:
+                raise HTTPException(422, str(exc)) from exc
+            wav, duration = to_wav_bytes(wave, sr), len(wave) / sr
+            await cache.put(key, wav, duration)
 
     return Response(
-        content=to_wav_bytes(wave, sr),
+        content=wav,
         media_type="audio/wav",
         headers={
             "Content-Disposition": 'inline; filename="speech.wav"',
-            "X-Audio-Duration": f"{len(wave) / sr:.2f}",
+            "X-Audio-Duration": f"{duration:.2f}",
+            "X-Cache": "HIT" if cached else "MISS",
         },
     )
 
 
-@router.post("/preview", response_model=TtsPreview)
+@router.post("/preview", response_model=TtsPreview, dependencies=[Depends(rate_limit("tts_preview", cheap=True))])
 def preview(
     req: TtsRequest,
     settings: Settings = Depends(get_settings),

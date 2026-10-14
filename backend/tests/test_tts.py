@@ -4,7 +4,6 @@ import os
 import numpy as np
 import pytest
 import scipy.io.wavfile
-from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.deps import get_tts_service
@@ -13,7 +12,6 @@ from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
 from app.text.english_normalizer import normalize_english
 from app.text.script_split import dominant_lang, split_runs, split_sentences
 
-client = TestClient(app)
 
 
 # --- Text processing -----------------------------------------------------------------
@@ -98,7 +96,7 @@ def fake_tts():
     app.dependency_overrides.clear()
 
 
-def test_tts_returns_wav(fake_tts):
+def test_tts_returns_wav(client, fake_tts):
     res = client.post("/api/v1/tts", json={"text": "សួស្តី", "lang": "km", "speed": 1.2})
     assert res.status_code == 200
     assert res.headers["content-type"] == "audio/wav"
@@ -107,22 +105,56 @@ def test_tts_returns_wav(fake_tts):
     assert fake_tts.calls == [("សួស្តី", "km", 1.2)]
 
 
-def test_tts_validation(fake_tts):
+def test_tts_validation(client, fake_tts):
     assert client.post("/api/v1/tts", json={"text": ""}).status_code == 422
     assert client.post("/api/v1/tts", json={"text": "hi", "lang": "fr"}).status_code == 422
     assert client.post("/api/v1/tts", json={"text": "hi", "speed": 5}).status_code == 422
 
 
-def test_tts_too_long(fake_tts, monkeypatch):
+def test_tts_too_long(client, fake_tts, monkeypatch):
     monkeypatch.setattr(get_settings(), "tts_max_chars", 10)
     assert client.post("/api/v1/tts", json={"text": "x" * 11}).status_code == 413
 
 
-def test_tts_nothing_to_speak(fake_tts):
+def test_tts_nothing_to_speak(client, fake_tts):
     assert client.post("/api/v1/tts", json={"text": "!!!"}).status_code == 422
 
 
-def test_tts_preview(fake_tts):
+def test_tts_cache_reuses_audio_for_the_same_speech(client, fake_tts):
+    first = client.post("/api/v1/tts", json={"text": "សួស្តី", "lang": "km"})
+    again = client.post("/api/v1/tts", json={"text": "សួស្តី", "lang": "km"})
+    assert (first.headers["x-cache"], again.headers["x-cache"]) == ("MISS", "HIT")
+    assert again.content == first.content and again.headers["x-audio-duration"] == "0.50"
+    assert len(fake_tts.calls) == 1
+    # Cache hits still count against the daily allowance.
+    assert client.get("/api/v1/usage").json()["quotas"]["tts_chars"]["used"] == 2 * len("សួស្តី")
+
+
+def test_tts_cache_key_is_what_gets_spoken(client, fake_tts):
+    client.post("/api/v1/tts", json={"text": "It costs $25", "lang": "en"})
+    # Different input, same normalized speech -> same audio.
+    assert client.post("/api/v1/tts", json={"text": "it costs twenty-five dollars", "lang": "en"}).headers["x-cache"] == "HIT"
+    assert client.post("/api/v1/tts", json={"text": "It costs $25", "lang": "en", "speed": 1.5}).headers["x-cache"] == "MISS"
+
+
+def test_tts_cache_skips_large_clips_and_can_be_disabled(client, fake_tts, monkeypatch):
+    monkeypatch.setattr(get_settings(), "tts_cache_max_bytes", 100)  # the fake's clip is ~16 kB
+    for _ in range(2):
+        assert client.post("/api/v1/tts", json={"text": "hello"}).headers["x-cache"] == "MISS"
+    monkeypatch.setattr(get_settings(), "tts_cache_max_bytes", 2_000_000)
+    monkeypatch.setattr(get_settings(), "tts_cache_enabled", False)
+    for _ in range(2):
+        assert client.post("/api/v1/tts", json={"text": "hello"}).headers["x-cache"] == "MISS"
+    assert len(fake_tts.calls) == 4
+
+
+def test_failed_tts_is_not_cached(client, fake_tts):
+    for _ in range(2):
+        assert client.post("/api/v1/tts", json={"text": "!!!"}).status_code == 422
+    assert len(fake_tts.calls) == 2
+
+
+def test_tts_preview(client, fake_tts):
     res = client.post("/api/v1/tts/preview", json={"text": "ខ្ញុំប្រើ Facebook"})
     assert res.json() == {
         "primary_lang": "km",
@@ -133,7 +165,7 @@ def test_tts_preview(fake_tts):
 # --- Real models (download ~300 MB on first run) -------------------------------------
 
 @pytest.mark.skipif(not os.getenv("BONDETH_RUN_MODEL_TESTS"), reason="set BONDETH_RUN_MODEL_TESTS=1")
-def test_real_tts_bilingual():
+def test_real_tts_bilingual(client):
     res = client.post("/api/v1/tts", json={"text": "តម្លៃ $25 សម្រាប់ iPhone ថ្មី។"})
     assert res.status_code == 200, res.text
     sr, data = scipy.io.wavfile.read(io.BytesIO(res.content))

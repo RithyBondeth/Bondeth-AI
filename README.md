@@ -12,6 +12,8 @@
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
+[![CI](https://github.com/RithyBondeth/Bondeth-AI/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/RithyBondeth/Bondeth-AI/actions/workflows/ci.yml)
+
 </div>
 
 ---
@@ -26,10 +28,12 @@ Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើង
 
 | Feature | Engine | What it does |
 | --- | --- | --- |
-| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. About **18% CER** on FLEURS Khmer |
-| **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out |
+| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). About **18% CER** on FLEURS Khmer |
+| **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. Repeated phrases are served from a Redis cache |
 | **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Clones a voice from a 3-30 s sample (consent required) and speaks any Khmer or English text. Runs as a queued job that survives restarts |
 | **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, transcription history, saved voices |
+| **Developer API keys** | PostgreSQL | Per-app keys (`X-API-Key: bdk_...`) for the whole API, revocable, with daily usage metered per key |
+| **Usage limits** | Redis | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage` |
 
 The web app is a studio-style Next.js UI with light/dark themes, animations and hand-drawn doodles.
 
@@ -73,6 +77,19 @@ npm install && npm run dev                             # http://localhost:3000
 
 Real-model tests are opt-in: `BONDETH_RUN_MODEL_TESTS=1 pytest`. Khmer STT accuracy and voice-cloning quality can be re-measured with `python -m scripts.eval_khmer_stt` and `python -m scripts.bench_voice_clone`.
 
+## Usage limits
+
+Every caller (the signed-in user, otherwise the client IP) has a per-minute rate limit for each tool and a daily allowance that resets at midnight Cambodia time (UTC+7):
+
+| | Signed out | Signed in |
+| --- | --- | --- |
+| Requests per minute, per tool | 10 | 30 |
+| Speech-to-text | 10 min of audio | 60 min |
+| Text-to-speech | 5,000 characters | 50,000 |
+| Voice cloning | needs an account | 20 jobs |
+
+Requests made with a developer API key (created under **API keys** in the studio) have their own rate-limit bucket per key (60/min), share the account's daily allowance, and are metered per key and day in PostgreSQL. Going over returns `429` with a `Retry-After` header. Failed requests are refunded. All limits are `BONDETH_RATE_LIMIT_*` / `BONDETH_QUOTA_*` settings (see [backend/.env.example](backend/.env.example)), and `BONDETH_LIMITS_ENABLED=false` keeps counting usage without blocking anything. If a reverse proxy sits in front of the backend, set `FORWARDED_ALLOW_IPS` to its address so limits apply to real client IPs.
+
 ## Architecture
 
 ```text
@@ -81,12 +98,12 @@ Real-model tests are opt-in: `BONDETH_RUN_MODEL_TESTS=1 pytest`. Khmer STT accur
 └──────────────────────────────────────────┬────────────────────────────────────────────────┘
                                            │ REST + JWT
 ┌──────────────────────────────── FastAPI (backend/) ───────────────────────────────────────┐
-│  /auth  /stt  /tts  /clone  /voices  /transcriptions  /text/normalize  /health           │
-│  Khmer & English normalizers · script splitting for mixed text · login throttling        │
+│  /auth  /api-keys  /stt(/jobs)  /tts  /clone  /voices  /transcriptions  /usage  /health  │
+│  Khmer & English normalizers · script splitting for mixed text · rate limits · quotas    │
 ├──────────────────┬──────────────────┬──────────────────────────┬─────────────────────────┤
-│ STT              │ TTS              │ Clone worker (thread)     │ PostgreSQL · Redis      │
+│ STT + job worker │ TTS              │ Clone worker (thread)     │ PostgreSQL · Redis      │
 │ Khmer Whisper    │ MMS-TTS km + en  │ OmniVoice, jobs in Redis  │ users, transcriptions,  │
-│ + faster-whisper │                  │ (re-queued after crashes) │ cloned_voices · tokens  │
+│ + faster-whisper │ + Redis cache    │ (re-queued after crashes) │ voices · API keys       │
 └──────────────────┴──────────────────┴──────────────────────────┴─────────────────────────┘
 ```
 
@@ -99,8 +116,9 @@ The engines' **code** is open source, but some **pretrained weights** are non-co
 | faster-whisper, Whisper `large-v3-turbo`, whisper-turbo-khmer-v9 | MIT |
 | Meta MMS-TTS weights (`facebook/mms-tts-*`) | CC BY-NC 4.0 (non-commercial) |
 | OmniVoice weights | CC BY-NC (non-commercial) |
+| VoxCPM2 weights (`openbmb/VoxCPM2`), optional engine | Apache-2.0 (commercial use OK) |
 
-Before any paid offering, TTS and voice cloning need commercially licensed weights. [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) (Apache 2.0, supports Khmer) is a candidate on GPU servers; the clone engine is behind a swappable interface.
+Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2): set `BONDETH_TTS_ENGINE=voxcpm` and `BONDETH_CLONE_ENGINE=voxcpm`. It supports Khmer, outputs 48 kHz, and wants a CUDA GPU with ~8 GB of VRAM (the GPU Docker image includes it; locally, `pip install -r backend/requirements-voxcpm.txt`). Standard TTS uses a house voice designed once from `BONDETH_VOXCPM_HOUSE_VOICE`. Speed is passed to VoxCPM2 as a style hint, so it's approximate.
 
 ## Documentation
 

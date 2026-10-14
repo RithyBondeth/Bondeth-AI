@@ -1,0 +1,1 @@
+voxcpm==2.0.3  # optional engine: BONDETH_TTS_ENGINE / BONDETH_CLONE_ENGINE=voxcpm (Apache-2.0)
