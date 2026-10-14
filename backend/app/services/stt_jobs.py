@@ -28,6 +28,7 @@ from typing import Literal
 
 from redis import Redis
 
+from app.services.job_billing import JobBilling, JobCharge
 from app.services.stt import Segment, SttService
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,7 @@ class SttJob:
     audio_path: Path
     language: str  # "auto" | "km" | "en"
     user_id: str = ""  # "" for anonymous jobs, whose unguessable id is the only way in
-    quota_key: str = ""  # Redis counter the reservation was added to
-    charged: int = 0  # seconds reserved against the quota
+    charge: str | None = None  # JobCharge JSON: seconds reserved, settled when the job ends
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     status: JobStatus = "queued"
     error: str | None = None
@@ -75,11 +75,10 @@ class SttJob:
     def from_redis(cls, data: dict[str, str]) -> "SttJob":
         known = {f.name for f in fields(cls)}
         kwargs: dict = {k: v for k, v in data.items() if k in known}
-        for name in ("error", "result", "transcription_id", "finished_at"):
+        for name in ("charge", "error", "result", "transcription_id", "finished_at"):
             if kwargs.get(name) == "":
                 kwargs[name] = None
         kwargs["audio_path"] = Path(kwargs["audio_path"])
-        kwargs["charged"] = int(kwargs.get("charged") or 0)
         kwargs["created_at"] = float(kwargs["created_at"])
         if kwargs.get("finished_at") is not None:
             kwargs["finished_at"] = float(kwargs["finished_at"])
@@ -87,8 +86,10 @@ class SttJob:
 
 
 class SttJobQueue:
-    def __init__(self, redis: Redis, stt: SttService, jobs_root: Path, max_pending: int, ttl_s: int):
+    def __init__(self, redis: Redis, stt: SttService, jobs_root: Path, max_pending: int, ttl_s: int,
+                 billing: JobBilling | None = None):
         self._redis = redis
+        self._billing = billing
         self._stt = stt
         self._jobs_root = jobs_root
         self._max_pending = max_pending
@@ -215,10 +216,11 @@ class SttJobQueue:
         self._emit(job.id, *final)
 
     def _settle(self, job: SttJob, actual: int) -> None:
-        """Correct the quota reservation to what was actually transcribed (0 = refund)."""
-        if job.quota_key and actual != job.charged and self._redis.exists(job.quota_key):
-            self._redis.incrby(job.quota_key, actual - job.charged)
-            job.charged = actual
+        """Correct the reservation to what was actually transcribed (0 = refund)."""
+        charge = JobCharge.loads(job.charge)
+        if self._billing and charge:
+            self._billing.settle(charge, actual)
+            job.charge = charge.dumps()
 
     def sweep(self) -> None:
         """Delete upload folders whose Redis record has expired."""

@@ -28,6 +28,8 @@ from typing import Literal
 
 from redis import Redis
 
+from app.services.job_billing import JobBilling, JobCharge
+
 logger = logging.getLogger(__name__)
 
 JobStatus = Literal["queued", "running", "done", "failed"]
@@ -60,6 +62,7 @@ class CloneJob:
     ref_text: str | None = None
     ref_text_source: RefTextSource = "provided"
     voice_id: str | None = None
+    charge: str | None = None  # JobCharge JSON: what was reserved, refunded if the job fails
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     status: JobStatus = "queued"
     error: str | None = None
@@ -91,14 +94,15 @@ class CloneJob:
         return cls(**kwargs)
 
 
-_OPTIONAL_FIELDS = ("ref_text", "voice_id", "error", "duration", "finished_at")
+_OPTIONAL_FIELDS = ("ref_text", "voice_id", "charge", "error", "duration", "finished_at")
 _FLOAT_FIELDS = ("speed", "duration", "created_at", "finished_at")
 
 
 class CloneJobQueue:
     def __init__(self, redis: Redis, worker: Callable[[CloneJob], None], jobs_root: Path,
-                 max_pending: int, ttl_s: int):
+                 max_pending: int, ttl_s: int, billing: JobBilling | None = None):
         self._redis = redis
+        self._billing = billing
         self._worker = worker
         self._jobs_root = jobs_root
         self._max_pending = max_pending
@@ -190,6 +194,8 @@ class CloneJobQueue:
         except Exception as exc:
             logger.warning("Clone job %s failed: %s", job.id, exc)
             job.status, job.error = "failed", str(exc) or exc.__class__.__name__
+            if self._billing:  # a failed job doesn't use up the allowance
+                self._billing.settle(JobCharge.loads(job.charge), 0)
         finally:
             job.finished_at = time.time()
             if job.delete_reference:
