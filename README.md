@@ -29,7 +29,7 @@ Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើង
 | Feature | Engine | What it does |
 | --- | --- | --- |
 | **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. About **18% CER** on FLEURS Khmer |
-| **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out |
+| **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. Repeated phrases are served from a Redis cache |
 | **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Clones a voice from a 3-30 s sample (consent required) and speaks any Khmer or English text. Runs as a queued job that survives restarts |
 | **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, transcription history, saved voices |
 | **Usage limits** | Redis | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage` |
