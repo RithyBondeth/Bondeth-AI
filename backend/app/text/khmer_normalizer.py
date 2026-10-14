@@ -30,7 +30,8 @@ _KHMER_DIGITS = str.maketrans("០១២៣៤៥៦៧៨៩", "0123456789")
 
 # "1,250,000.75" (grouped) or "1250000.75" (plain)
 _NUM = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
-_DATE_RE = re.compile(r"\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\b")
+# An optional leading "ថ្ងៃទី" (day) is absorbed so "ថ្ងៃទី 13/10/2026" isn't read as "day day thirteen".
+_DATE_RE = re.compile(r"(?:ថ្ងៃទី\s*)?\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\b")
 _DOLLAR_RE = re.compile(rf"\$\s?({_NUM})|({_NUM})\s?\$")
 _RIEL_RE = re.compile(rf"៛\s?({_NUM})|({_NUM})\s?៛")
 _PERCENT_RE = re.compile(rf"({_NUM})\s?%")
