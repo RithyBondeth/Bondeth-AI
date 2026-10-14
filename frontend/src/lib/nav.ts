@@ -1,4 +1,4 @@
-import { AudioLines, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
+import { AudioLines, CircleUserRound, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; km: string; icon: LucideIcon; description: string };
 
@@ -20,6 +20,10 @@ export const LIBRARY: NavItem[] = [
     description: "Keys for calling Bondeth AI from your own apps." },
 ];
 
+// Reached from the signed-in user in the sidebar footer, not listed in the nav.
+export const ACCOUNT: NavItem = { href: "/account", label: "Account", km: "គណនី", icon: CircleUserRound,
+  description: "Profile, email confirmation, password and account deletion." };
+
 export function findNav(pathname: string): NavItem | undefined {
-  return [...WORKSPACES, ...LIBRARY].find((item) => pathname.startsWith(item.href));
+  return [...WORKSPACES, ...LIBRARY, ACCOUNT].find((item) => pathname.startsWith(item.href));
 }

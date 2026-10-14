@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -17,7 +18,8 @@ class QuotaOut(BaseModel):
 
 
 class UsageOut(BaseModel):
-    signed_in: bool
+    signed_in: bool  # has the account allowance (signed in with a verified email)
+    account: Literal["none", "unverified", "verified"]
     resets_at: datetime
     # stt_seconds, tts_chars, and clone_jobs (signed in only)
     quotas: dict[str, QuotaOut]
@@ -35,4 +37,5 @@ async def usage(request: Request, user: User | None = Depends(get_optional_user)
         used = await limits.used(quota, caller)
         limit = limits.limit(quota, caller) if limits.enforced else None
         quotas[quota] = QuotaOut(used=used, limit=limit, remaining=None if limit is None else max(limit - used, 0))
-    return UsageOut(signed_in=caller.signed_in, resets_at=limits.resets_at(), quotas=quotas)
+    account = "verified" if caller.signed_in else "unverified" if caller.unverified else "none"
+    return UsageOut(signed_in=caller.signed_in, account=account, resets_at=limits.resets_at(), quotas=quotas)

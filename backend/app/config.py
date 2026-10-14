@@ -34,6 +34,22 @@ class Settings(BaseSettings):
     refresh_token_days: int = 7
     login_max_attempts: int = 10  # per email + IP, within the window below
     login_window_s: int = 900
+    register_max_per_ip: int = 5  # new accounts per client IP, within the window below
+    register_window_s: int = 3600
+    email_verify_token_hours: int = 48
+    password_reset_token_minutes: int = 60
+    auth_email_max_per_hour: int = 5  # verification resends / reset requests, per user or IP
+
+    # Where users open the app; links in emails point here.
+    public_app_url: str = "http://localhost:3000"
+    # Outgoing email. "log" writes emails to the server log (development); "smtp" sends them.
+    email_backend: Literal["log", "smtp"] = "log"
+    email_from: str = "Bondeth AI <no-reply@localhost>"
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
 
     # Speech-to-text. English (and language detection) uses stock faster-whisper.
     stt_model: str = "large-v3-turbo"

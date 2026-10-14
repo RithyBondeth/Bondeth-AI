@@ -41,6 +41,15 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = _created_at()
+    # Until the email is confirmed the account only gets the signed-out allowance,
+    # so creating accounts in bulk doesn't buy extra quota.
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Tokens issued before this (e.g. before a password reset) are rejected.
+    sessions_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
 
 
 class Transcription(Base):

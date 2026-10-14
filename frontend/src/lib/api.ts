@@ -8,7 +8,7 @@
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
-export type User = { id: string; email: string; full_name: string | null; created_at: string };
+export type User = { id: string; email: string; full_name: string | null; email_verified: boolean; created_at: string };
 type Session = { access: string; refresh: string; user: User };
 type AuthMode = "required" | "optional" | "none";
 
@@ -207,6 +207,21 @@ export async function register(email: string, password: string, fullName?: strin
       body: JSON.stringify({ email, password, full_name: fullName || null }),
     }),
   );
+}
+
+/** Re-read the signed-in user (e.g. after verifying the email) so every component sees the change. */
+export async function refreshUser(): Promise<User | null> {
+  const current = readSession();
+  if (!current) return null;
+  const user = await apiJson<User>("/api/v1/auth/me", { auth: "required" });
+  const latest = readSession(); // the request may have refreshed the tokens
+  if (latest) writeSession({ ...latest, user });
+  return user;
+}
+
+/** Forget the session locally without calling the server (e.g. after deleting the account). */
+export function clearSession(): void {
+  writeSession(null);
 }
 
 export async function logout(): Promise<void> {

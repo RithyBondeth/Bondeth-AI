@@ -56,6 +56,8 @@ async def _owned_key(key_id: uuid.UUID, user: User, session: AsyncSession) -> Ap
 async def create_api_key(req: ApiKeyCreate, user: User = Depends(get_session_user),
                          session: AsyncSession = Depends(get_db),
                          settings: Settings = Depends(get_settings)) -> ApiKeyCreated:
+    if not user.email_verified:
+        raise HTTPException(403, "Verify your email before creating API keys.")
     active = await session.scalar(select(func.count()).select_from(ApiKey)
                                   .where(ApiKey.user_id == user.id, ApiKey.revoked_at.is_(None)))
     if active >= settings.max_api_keys_per_user:

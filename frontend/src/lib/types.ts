@@ -60,6 +60,7 @@ export type QuotaName = "stt_seconds" | "tts_chars" | "clone_jobs";
 
 export type Usage = {
   signed_in: boolean;
+  account: "none" | "unverified" | "verified";
   resets_at: string;
   // limit and remaining are null when the server has limits switched off; clone_jobs only when signed in.
   quotas: Partial<Record<QuotaName, { used: number; limit: number | null; remaining: number | null }>>;

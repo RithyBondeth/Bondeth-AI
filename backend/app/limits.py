@@ -46,9 +46,10 @@ _LABELS = {"stt_seconds": "speech-to-text", "tts_chars": "text-to-speech", "clon
 
 @dataclass(frozen=True)
 class Caller:
-    key: str  # quota owner: "user:<id>" or "ip:<address>"
-    signed_in: bool
+    key: str  # quota owner: "user:<id>" for verified accounts, else "ip:<address>"
+    signed_in: bool  # gets the account allowance (a verified account)
     api_key_id: uuid.UUID | None = None  # set when the request used a developer API key
+    unverified: bool = False  # signed in, but the email isn't confirmed yet
 
     @property
     def rate_key(self) -> str:
@@ -56,11 +57,12 @@ class Caller:
 
     @classmethod
     def of(cls, request: Request, user: User | None) -> "Caller":
-        if user is not None:
+        if user is not None and user.email_verified:
             api_key = getattr(request.state, "api_key", None)
             return cls(f"user:{user.id}", True, api_key.id if api_key else None)
+        # Signed out, or not verified yet: limited per IP, so new accounts don't add allowance.
         # Behind a reverse proxy, set uvicorn's FORWARDED_ALLOW_IPS so this is the real client.
-        return cls(f"ip:{request.client.host if request.client else 'unknown'}", False)
+        return cls(f"ip:{request.client.host if request.client else 'unknown'}", False, unverified=user is not None)
 
 
 class LimitExceeded(Exception):
@@ -115,17 +117,22 @@ class Limits:
 
     # --- Rate limits ---------------------------------------------------------------
 
-    async def hit(self, group: str, caller: Caller, cheap: bool = False) -> None:
-        """Count one request to `group`; raise RateLimited past the per-window limit."""
+    async def hit(self, group: str, caller: Caller, cheap: bool = False,
+                  limit: int | None = None, window: int | None = None, message: str | None = None) -> None:
+        """Count one request to `group`; raise RateLimited past the per-window limit.
+
+        `limit`/`window` override the defaults, e.g. for sign-ups per hour.
+        """
         if not self.enforced:
             return
-        if cheap:
-            limit = self._s.rate_limit_cheap
-        elif caller.api_key_id:
-            limit = self._s.rate_limit_api_key
-        else:
-            limit = self._s.rate_limit_user if caller.signed_in else self._s.rate_limit_anon
-        window = self._s.rate_limit_window_s
+        if limit is None:
+            if cheap:
+                limit = self._s.rate_limit_cheap
+            elif caller.api_key_id:
+                limit = self._s.rate_limit_api_key
+            else:
+                limit = self._s.rate_limit_user if caller.signed_in else self._s.rate_limit_anon
+        window = window or self._s.rate_limit_window_s
         now = self._clock()
         key = f"rate:{group}:{caller.rate_key}:{int(now // window)}"
         async with self._redis.pipeline(transaction=True) as pipe:
@@ -133,8 +140,9 @@ class Limits:
             pipe.expire(key, window, nx=True)
             count, _ = await pipe.execute()
         if count > limit:
-            raise RateLimited(f"Too many requests. Try again in {math.ceil(window - now % window)} s.",
-                              retry_after=math.ceil(window - now % window))
+            wait = math.ceil(window - now % window)
+            when = f"{wait} s" if wait < 120 else f"{math.ceil(wait / 60)} min"
+            raise RateLimited(f"{message or 'Too many requests.'} Try again in {when}.", retry_after=wait)
 
     # --- Daily quotas --------------------------------------------------------------
 
@@ -178,11 +186,12 @@ class Limits:
             message = (f"This needs {describe(quota, amount)} of {label} but only "
                        f"{describe(quota, limit - used)} of today's allowance is left.")
         elif limit == 0:
-            message = f"Sign in to use {label}."
+            message = f"Verify your email to use {label}." if caller.unverified else f"Sign in to use {label}."
         else:
             message = f"You've used today's {label} allowance ({describe(quota, limit)})."
         if limit > 0 and not caller.signed_in:
-            message += " Sign in for a larger allowance."
+            message += (" Verify your email for a larger allowance." if caller.unverified
+                        else " Sign in for a larger allowance.")
         raise QuotaExceeded(f"{message} It resets at midnight (UTC{self._s.quota_utc_offset_hours:+d}).",
                             retry_after=math.ceil(self.resets_at().timestamp() - self._clock()))
 
