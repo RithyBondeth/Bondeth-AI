@@ -82,8 +82,9 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npx tsc --noEmit
       - run: npm run build
+      # After the build: route types such as LayoutProps are generated into .next/ by it.
+      - run: npx tsc --noEmit
 
   compose:
     name: Docker Compose config
