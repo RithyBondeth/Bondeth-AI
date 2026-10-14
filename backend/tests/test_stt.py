@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.deps import get_stt_service
@@ -39,7 +38,6 @@ def fake_stt():
     app.dependency_overrides.clear()
 
 
-client = TestClient(app)
 
 
 def test_clean_khmer_output():
@@ -78,7 +76,7 @@ def test_auto_language_detection(probs, expected):
     assert (lang, round(p, 2)) == expected
 
 
-def test_stt_success_and_temp_file_cleanup(fake_stt):
+def test_stt_success_and_temp_file_cleanup(client, fake_stt):
     res = client.post("/api/v1/stt", files={"file": ("clip.wav", b"RIFF....", "audio/wav")})
     assert res.status_code == 200
     body = res.json()
@@ -89,28 +87,28 @@ def test_stt_success_and_temp_file_cleanup(fake_stt):
     assert not path.exists()
 
 
-def test_stt_forced_language(fake_stt):
+def test_stt_forced_language(client, fake_stt):
     client.post("/api/v1/stt", files={"file": ("a.mp3", b"x", "audio/mpeg")}, data={"language": "en"})
     assert fake_stt.calls[0][1] == "en"
 
 
-def test_stt_rejects_unknown_language(fake_stt):
+def test_stt_rejects_unknown_language(client, fake_stt):
     res = client.post("/api/v1/stt", files={"file": ("a.wav", b"x")}, data={"language": "fr"})
     assert res.status_code == 422
 
 
-def test_stt_rejects_bad_extension(fake_stt):
+def test_stt_rejects_bad_extension(client, fake_stt):
     res = client.post("/api/v1/stt", files={"file": ("notes.txt", b"hello")})
     assert res.status_code == 415
     assert not fake_stt.calls
 
 
-def test_stt_rejects_empty_file(fake_stt):
+def test_stt_rejects_empty_file(client, fake_stt):
     res = client.post("/api/v1/stt", files={"file": ("a.wav", b"")})
     assert res.status_code == 400
 
 
-def test_stt_rejects_oversized_file(fake_stt, monkeypatch):
+def test_stt_rejects_oversized_file(client, fake_stt, monkeypatch):
     monkeypatch.setattr(get_settings(), "max_upload_mb", 1)
     res = client.post("/api/v1/stt", files={"file": ("a.wav", b"0" * (1024 * 1024 + 1))})
     assert res.status_code == 413
@@ -121,7 +119,7 @@ def test_stt_rejects_oversized_file(fake_stt, monkeypatch):
 
 @pytest.mark.skipif(not os.getenv("BONDETH_RUN_MODEL_TESTS"), reason="set BONDETH_RUN_MODEL_TESTS=1")
 @pytest.mark.skipif(shutil.which("say") is None, reason="needs macOS `say` to synthesize audio")
-def test_real_whisper_english(tmp_path):
+def test_real_whisper_english(client, tmp_path):
     wav = tmp_path / "hello.wav"
     subprocess.run(["say", "-o", str(wav), "--data-format=LEI16@16000",
                     "Hello, this is a test of Bondeth AI."], check=True)
@@ -134,7 +132,7 @@ def test_real_whisper_english(tmp_path):
 
 
 @pytest.mark.skipif(not os.getenv("BONDETH_RUN_MODEL_TESTS"), reason="set BONDETH_RUN_MODEL_TESTS=1")
-def test_real_khmer_via_tts_roundtrip():
+def test_real_khmer_via_tts_roundtrip(client):
     """Khmer speech must be detected as Khmer and transcribed in Khmer script.
 
     Exact words are not asserted: the MMS Khmer voice is not very clear, so this

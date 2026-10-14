@@ -68,6 +68,9 @@ services:
       BONDETH_STT_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
       BONDETH_TTS_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
       BONDETH_CLONE_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
+      # Reverse proxies allowed to set the client IP (X-Forwarded-For); see .env.example.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      BONDETH_LIMITS_ENABLED: ${BONDETH_LIMITS_ENABLED:-true}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

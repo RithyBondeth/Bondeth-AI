@@ -67,6 +67,17 @@ export const sessionStore = {
   },
 };
 
+// ---------- Usage changes ----------
+
+// Requests that spend part of the daily allowance; the usage meter refetches after each one.
+const METERED = /^\/api\/v1\/(stt|tts|clone)\/?(\?|$)/;
+const usageListeners = new Set<() => void>();
+
+export function onUsageChange(fn: () => void): () => void {
+  usageListeners.add(fn);
+  return () => usageListeners.delete(fn);
+}
+
 // ---------- Requests ----------
 
 async function errorMessage(res: Response): Promise<string> {
@@ -134,6 +145,7 @@ export async function api(path: string, init: RequestInit & { auth?: AuthMode } 
     if (await refreshTokens()) res = await send(true);
     else if (auth === "optional") res = await send(false); // session ended: carry on anonymously
   }
+  if (rest.method === "POST" && METERED.test(path)) usageListeners.forEach((fn) => fn());
   if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
   return res;
 }

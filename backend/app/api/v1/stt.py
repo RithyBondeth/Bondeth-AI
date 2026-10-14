@@ -9,8 +9,9 @@ from app.auth import get_optional_user
 from app.config import Settings, get_settings
 from app.db import Transcription, User
 from app.deps import get_stt_service
+from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.stt import SttService
-from app.uploads import saved_upload
+from app.uploads import audio_duration, saved_upload
 
 router = APIRouter(prefix="/stt", tags=["speech-to-text"])
 
@@ -40,14 +41,23 @@ async def speech_to_text(
     settings: Settings = Depends(get_settings),
     stt: SttService = Depends(get_stt_service),
     user: User | None = Depends(get_optional_user),
+    caller: Caller = Depends(rate_limit("stt")),
+    limits: Limits = Depends(get_limits),
 ) -> SttResponse:
-    """Public. When called with a bearer token, the result is also saved to your history."""
+    """Public. When called with a bearer token, the result is also saved to your history.
+
+    Counts against the daily speech-to-text allowance (see GET /usage).
+    """
     async with saved_upload(file, settings.tmp_dir, settings.max_upload_mb) as path:
-        try:
-            # Whisper is CPU/GPU-bound; keep it off the event loop.
-            result = await run_in_threadpool(stt.transcribe, path, None if language == "auto" else language)
-        except Exception as exc:  # corrupt/undecodable audio surfaces here
-            raise HTTPException(422, f"Could not transcribe audio: {exc}") from exc
+        # Reserve the header's duration up front when it has one; settle to the real one below.
+        probed = await run_in_threadpool(audio_duration, path)
+        async with limits.spend("stt_seconds", caller, probed or 0) as charge:
+            try:
+                # Whisper is CPU/GPU-bound; keep it off the event loop.
+                result = await run_in_threadpool(stt.transcribe, path, None if language == "auto" else language)
+            except Exception as exc:  # corrupt/undecodable audio surfaces here
+                raise HTTPException(422, f"Could not transcribe audio: {exc}") from exc
+            charge.settle(result.duration)
 
     transcription_id = None
     if user is not None and result.text:

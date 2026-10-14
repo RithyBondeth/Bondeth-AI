@@ -9,6 +9,17 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".flac", ".aac", ".
 _CHUNK = 1024 * 1024
 
 
+def audio_duration(path: Path) -> float | None:
+    """Duration from the container header, or None if it has none (e.g. browser-recorded WebM) or is unreadable."""
+    try:
+        import av
+
+        with av.open(str(path)) as container:
+            return container.duration / av.time_base if container.duration else None
+    except Exception:
+        return None
+
+
 @asynccontextmanager
 async def saved_upload(file: UploadFile, tmp_dir: Path, max_mb: int) -> AsyncIterator[Path]:
     """Stream an uploaded audio file to disk and always delete it afterwards."""

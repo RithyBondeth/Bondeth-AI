@@ -19,6 +19,7 @@ from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.db import ClonedVoice, User, get_db
 from app.deps import get_stt_service
+from app.limits import rate_limit
 from app.services.stt import SttService
 from app.services.voice_clone import InvalidReference, load_reference
 from app.uploads import saved_upload
@@ -57,7 +58,8 @@ async def get_owned_voice(voice_id: uuid.UUID, user: User, session: AsyncSession
     return voice
 
 
-@router.post("", status_code=201, response_model=VoiceOut)
+# Rate limited because saving can run speech-to-text on the sample.
+@router.post("", status_code=201, response_model=VoiceOut, dependencies=[Depends(rate_limit("voices", signed_in=True))])
 async def create_voice(
     voice_alias: str = Form(..., min_length=1, max_length=100),
     reference_audio: UploadFile = File(..., description="3-30 s of the voice (.wav, .mp3, .m4a, ...)"),

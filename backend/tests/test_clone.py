@@ -103,6 +103,17 @@ def test_text_too_long(client, env, register, monkeypatch):
     assert post_clone(client, register(), text="x" * 6).status_code == 413
 
 
+def test_daily_clone_allowance(client, env, register, monkeypatch):
+    monkeypatch.setattr(get_settings(), "quota_clone_jobs_user", 1)
+    headers = register()
+    assert post_clone(client, headers, seconds=1.0).status_code == 422  # rejected jobs are refunded
+    assert post_clone(client, headers, reference_text="hi").status_code == 202
+    res = post_clone(client, headers, reference_text="hi")
+    assert res.status_code == 429 and res.json()["reason"] == "quota"
+    assert "voice cloning allowance (1 clone job)" in res.json()["detail"]
+    assert client.get("/api/v1/usage", headers=headers).json()["quotas"]["clone_jobs"]["remaining"] == 0
+
+
 # --- Job lifecycle (uploaded reference) ----------------------------------------------
 
 def test_job_lifecycle_with_provided_transcript(client, env, register):

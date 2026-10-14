@@ -43,3 +43,12 @@ export type CloneJob = {
   status_url: string;
   audio_url: string | null;
 };
+
+export type QuotaName = "stt_seconds" | "tts_chars" | "clone_jobs";
+
+export type Usage = {
+  signed_in: boolean;
+  resets_at: string;
+  // limit and remaining are null when the server has limits switched off; clone_jobs only when signed in.
+  quotas: Partial<Record<QuotaName, { used: number; limit: number | null; remaining: number | null }>>;
+};
