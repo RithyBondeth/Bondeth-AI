@@ -1,0 +1,48 @@
+"""Redis cache of generated speech, for phrases that are spoken again and again.
+
+Entries are keyed by what the voices will actually say (the normalized chunks
+from TtsService.prepare), the speed and the model ids, so a normalizer fix or
+a model swap simply misses instead of serving stale audio.
+
+The cache shares Redis with refresh tokens and job queues, so it must never
+rely on eviction (which could drop those): every entry has a TTL and entries
+above a size cap aren't stored at all.
+"""
+
+import hashlib
+import json
+
+from redis.asyncio import Redis
+
+from app.config import Settings
+
+CACHE_FORMAT = 1  # bump to invalidate every entry, e.g. if the WAV encoding changes
+
+
+class TtsCache:
+    def __init__(self, redis: Redis, settings: Settings):
+        self._redis = redis  # a client with decode_responses=False: values are WAV bytes
+        self._s = settings
+
+    @property
+    def enabled(self) -> bool:
+        return self._s.tts_cache_enabled
+
+    def key(self, chunks: list[tuple[str, str]], speed: float) -> str:
+        identity = [CACHE_FORMAT, self._s.tts_model_km, self._s.tts_model_en, round(speed, 3), chunks]
+        digest = hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
+        return f"tts:cache:{digest}"
+
+    async def get(self, key: str) -> tuple[bytes, float] | None:
+        if not self.enabled:
+            return None
+        wav, duration = await self._redis.hmget(key, ["wav", "duration"])
+        return (wav, float(duration)) if wav is not None and duration is not None else None
+
+    async def put(self, key: str, wav: bytes, duration: float) -> None:
+        if not self.enabled or len(wav) > self._s.tts_cache_max_bytes:
+            return
+        async with self._redis.pipeline(transaction=True) as pipe:
+            pipe.hset(key, mapping={"wav": wav, "duration": f"{duration:.2f}"})
+            pipe.expire(key, self._s.tts_cache_ttl_s)
+            await pipe.execute()

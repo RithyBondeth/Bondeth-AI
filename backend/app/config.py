@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     tts_model_en: str = "facebook/mms-tts-eng"
     tts_max_chars: int = 2000
     tts_preload: bool = False
+    tts_cache_enabled: bool = True  # reuse audio for text that was already spoken (same speed)
+    tts_cache_ttl_s: int = 7 * 86_400
+    tts_cache_max_bytes: int = 2_000_000  # ~1 min of 16 kHz audio; longer clips aren't cached
 
     # Voice cloning (OmniVoice). NOTE: model weights are CC-BY-NC (non-commercial);
     # swap the engine (e.g. VoxCPM2, Apache-2.0, needs a GPU) before charging for it.

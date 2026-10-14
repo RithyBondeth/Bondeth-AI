@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.services.clone_jobs import CloneJobQueue
 from app.services.stt import SttService
 from app.services.tts import TtsService
+from app.services.tts_cache import TtsCache
 from app.services.voice_clone import VoiceCloneService
 
 
@@ -32,3 +33,7 @@ def get_clone_service() -> VoiceCloneService:
 
 def get_clone_queue(request: Request) -> CloneJobQueue:
     return request.app.state.clone_queue
+
+
+def get_tts_cache(request: Request) -> TtsCache:
+    return TtsCache(request.app.state.redis_bytes, get_settings())

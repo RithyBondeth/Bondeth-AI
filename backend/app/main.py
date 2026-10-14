@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     engine = create_engine(settings.database_url)
     app.state.sessionmaker = create_sessionmaker(engine)
     app.state.redis = redis.asyncio.Redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.redis_bytes = redis.asyncio.Redis.from_url(settings.redis_url)  # binary values (TTS cache)
     # The clone worker is a plain thread, so it gets its own synchronous client.
     sync_redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
     app.state.clone_queue = CloneJobQueue(
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
     app.state.clone_queue.stop_worker()
     sync_redis.close()
     await app.state.redis.aclose()
+    await app.state.redis_bytes.aclose()
     await engine.dispose()
 
 
