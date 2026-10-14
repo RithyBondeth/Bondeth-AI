@@ -154,4 +154,7 @@ def test_throttle_is_per_account(client, register, monkeypatch):
 def test_production_requires_real_jwt_secret():
     with pytest.raises(ValidationError, match="BONDETH_JWT_SECRET"):
         Settings(env="production", jwt_secret=DEV_JWT_SECRET)
+    for weak in ("", "short-secret"):
+        with pytest.raises(ValidationError, match="BONDETH_JWT_SECRET"):
+            Settings(env="production", jwt_secret=weak)
     assert Settings(env="production", jwt_secret="x" * 48).env == "production"
