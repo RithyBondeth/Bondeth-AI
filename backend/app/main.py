@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_keys, auth, clone, health, stt, text, transcriptions, tts, usage, voices
+from app.api.v1 import api_keys, auth, clone, health, live, stt, text, transcriptions, tts, usage, voices
 from app.config import get_settings
 from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
@@ -76,7 +76,7 @@ def create_app() -> FastAPI:
     )
     app.add_exception_handler(LimitExceeded, limit_exceeded_handler)
 
-    for router in (health, auth, api_keys, text, stt, transcriptions, tts, voices, clone, usage):
+    for router in (health, auth, api_keys, text, stt, live, transcriptions, tts, voices, clone, usage):
         app.include_router(router.router, prefix="/api/v1")
     return app
 
