@@ -40,8 +40,7 @@ async def lifespan(app: FastAPI):
     if settings.stt_preload:
         await run_in_threadpool(get_stt_service().load)
     if settings.tts_preload:
-        for lang in ("km", "en"):
-            await run_in_threadpool(get_tts_service().load, lang)
+        await run_in_threadpool(get_tts_service().preload)
     if settings.clone_preload:
         await run_in_threadpool(get_clone_service().load)
     if settings.clone_worker_enabled:

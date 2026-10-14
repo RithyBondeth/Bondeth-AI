@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -54,17 +55,20 @@ class Settings(BaseSettings):
     stt_km_compute_type: str = "int8"
     stt_km_batch_size: int = 4  # speech chunks decoded together
 
-    # Text-to-speech (Meta MMS-TTS). NOTE: these weights are CC-BY-NC 4.0 (non-commercial).
+    # Text-to-speech. "mms" = Meta MMS-TTS, whose weights are CC-BY-NC 4.0 (non-commercial);
+    # "voxcpm" = VoxCPM2 (Apache-2.0, see below).
+    tts_engine: Literal["mms", "voxcpm"] = "mms"
     tts_model_km: str = "facebook/mms-tts-khm"
     tts_model_en: str = "facebook/mms-tts-eng"
     tts_max_chars: int = 2000
     tts_preload: bool = False
     tts_cache_enabled: bool = True  # reuse audio for text that was already spoken (same speed)
     tts_cache_ttl_s: int = 7 * 86_400
-    tts_cache_max_bytes: int = 2_000_000  # ~1 min of 16 kHz audio; longer clips aren't cached
+    tts_cache_max_bytes: int = 2_000_000  # ~1 min at 16 kHz (MMS), ~20 s at 48 kHz (VoxCPM2)
 
-    # Voice cloning (OmniVoice). NOTE: model weights are CC-BY-NC (non-commercial);
-    # swap the engine (e.g. VoxCPM2, Apache-2.0, needs a GPU) before charging for it.
+    # Voice cloning. "omnivoice" weights are CC-BY-NC (non-commercial); "voxcpm" is
+    # VoxCPM2 (Apache-2.0), the engine to use before charging for it.
+    clone_engine: Literal["omnivoice", "voxcpm"] = "omnivoice"
     clone_model: str = "k2-fsa/OmniVoice"
     clone_model_revision: str = "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
     clone_device: str = "auto"  # auto -> cuda, then mps (Apple Silicon), then cpu
@@ -76,6 +80,16 @@ class Settings(BaseSettings):
     clone_preload: bool = False
     clone_worker_enabled: bool = True  # disable on API-only replicas that shouldn't load the model
     max_voices_per_user: int = 10
+
+    # VoxCPM2 (Apache-2.0, commercial use OK): 2B params, ~8 GB VRAM on CUDA, 48 kHz output.
+    # Needs `pip install -r requirements-voxcpm.txt`. Shared by TTS and cloning when selected.
+    voxcpm_model: str = "openbmb/VoxCPM2"
+    voxcpm_model_revision: str = "32279effe8c19989596f05d353d1447f51d9e915"
+    voxcpm_device: str = "auto"  # auto -> cuda, then mps, then cpu
+    voxcpm_cfg_value: float = 2.0
+    voxcpm_inference_timesteps: int = 10  # more = slower, slightly better
+    # Description of the standard TTS voice, designed once and saved (see services/voxcpm.py).
+    voxcpm_house_voice: str = "A warm, clear adult female voice, friendly and calm, studio quality"
 
     # Abuse protection and daily allowances (see limits.py). A caller is the signed-in
     # user, otherwise the client IP. false = count usage but never block.

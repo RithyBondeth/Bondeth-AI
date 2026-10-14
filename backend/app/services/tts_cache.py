@@ -29,7 +29,11 @@ class TtsCache:
         return self._s.tts_cache_enabled
 
     def key(self, chunks: list[tuple[str, str]], speed: float) -> str:
-        identity = [CACHE_FORMAT, self._s.tts_model_km, self._s.tts_model_en, round(speed, 3), chunks]
+        if self._s.tts_engine == "voxcpm":
+            engine = ["voxcpm", self._s.voxcpm_model_revision, self._s.voxcpm_house_voice]
+        else:
+            engine = ["mms", self._s.tts_model_km, self._s.tts_model_en]
+        identity = [CACHE_FORMAT, *engine, round(speed, 3), chunks]
         digest = hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
         return f"tts:cache:{digest}"
 

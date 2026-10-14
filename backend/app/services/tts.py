@@ -1,8 +1,11 @@
-"""Text-to-speech service backed by Meta MMS-TTS (VITS).
+"""Text-to-speech service: Meta MMS-TTS (VITS, default) or VoxCPM2.
 
-Pipeline: pick primary language -> normalize numbers/symbols -> split into
+MMS pipeline: pick primary language -> normalize numbers/symbols -> split into
 Khmer/English runs -> split runs into sentences -> synthesize each chunk with
 the matching model -> join with short pauses.
+
+VoxCPM2 (BONDETH_TTS_ENGINE=voxcpm) is multilingual, so mixed Khmer/English
+sentences go to it whole, in the house voice (see services/voxcpm.py).
 
 Models load lazily per language. Inference is blocking, so callers must run
 `synthesize` in a worker thread.
@@ -16,6 +19,7 @@ import numpy as np
 import scipy.io.wavfile
 
 from app.config import Settings
+from app.services import voxcpm
 from app.text.english_normalizer import normalize_english
 from app.text.khmer_normalizer import normalize_khmer
 from app.text.script_split import dominant_lang, split_runs, split_sentences
@@ -59,9 +63,28 @@ class TtsService:
         self._repos = {"km": settings.tts_model_km, "en": settings.tts_model_en}
         self._voices: dict[str, _Voice] = {}
         self._load_lock = threading.Lock()
+        self._voxcpm: voxcpm.VoxCpm | None = None
+
+    @property
+    def engine(self) -> str:
+        return self._settings.tts_engine
 
     def loaded_languages(self) -> list[str]:
+        if self.engine == "voxcpm":
+            return ["voxcpm"] if voxcpm.is_loaded() else []
         return sorted(self._voices)
+
+    def preload(self) -> None:
+        if self.engine == "voxcpm":
+            self._vox().house_voice()
+        else:
+            for lang in ("km", "en"):
+                self.load(lang)
+
+    def _vox(self) -> voxcpm.VoxCpm:
+        if self._voxcpm is None:
+            self._voxcpm = voxcpm.VoxCpm(self._settings)
+        return self._voxcpm
 
     def load(self, lang: str) -> _Voice:
         if lang not in self._voices:
@@ -75,6 +98,10 @@ class TtsService:
     def prepare(self, text: str, lang: str) -> tuple[str, list[tuple[str, str]]]:
         """Return (primary_lang, [(lang, chunk_text), ...]) without running any model."""
         primary = dominant_lang(text) if lang == "auto" else lang
+        if self.engine == "voxcpm":
+            # One multilingual voice: keep mixed scripts (and English casing) together.
+            normalized = normalize_khmer(text) if primary == "km" else normalize_english(text, lowercase=False)
+            return primary, [(primary, piece) for s in split_sentences(normalized) for piece in _limit_length(s)]
         normalized = normalize_khmer(text) if primary == "km" else normalize_english(text)
 
         chunks: list[tuple[str, str]] = []
@@ -86,6 +113,8 @@ class TtsService:
 
     def synthesize(self, text: str, lang: str = "auto", speed: float = 1.0) -> tuple[np.ndarray, int]:
         _, chunks = self.prepare(text, lang)
+        if self.engine == "voxcpm":
+            return self._synthesize_voxcpm(chunks, speed)
         pieces: list[np.ndarray] = []
         prev_lang = None
         for chunk_lang, chunk in chunks:
@@ -101,6 +130,20 @@ class TtsService:
         if not pieces:
             raise NothingToSpeak("The text contains nothing that can be spoken in Khmer or English.")
         return np.concatenate(pieces), SAMPLE_RATE
+
+    def _synthesize_voxcpm(self, chunks: list[tuple[str, str]], speed: float) -> tuple[np.ndarray, int]:
+        chunks = [(lang, c) for lang, c in chunks if any(ch.isalnum() for ch in c)]
+        if not chunks:
+            raise NothingToSpeak("The text contains nothing that can be spoken in Khmer or English.")
+        vox = self._vox()
+        ref, ref_text = vox.house_voice()
+        sr = vox.sample_rate
+        pieces: list[np.ndarray] = []
+        for _, chunk in chunks:
+            if pieces:
+                pieces.append(np.zeros(int(SENTENCE_PAUSE_S * sr), dtype=np.float32))
+            pieces.append(_peak_normalize(vox.clone(chunk, ref, ref_text, speed)))
+        return np.concatenate(pieces), sr
 
 
 def _limit_length(sentence: str) -> list[str]:
