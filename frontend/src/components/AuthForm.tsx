@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
 import { MicDoodle, SparkleDoodle, SpeechBubbleDoodle, TwinVoicesDoodle, WaveformDoodle } from "@/components/doodles";
@@ -36,7 +36,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const user = isLogin
         ? await login(email, password)
         : await register(email, password, String(form.get("full_name") || ""));
-      toast(`Welcome${isLogin ? " back" : ""}, ${user.full_name || user.email}!`, "success");
+      toast(isLogin || user.email_verified
+        ? `Welcome${isLogin ? " back" : ""}, ${user.full_name || user.email}!`
+        : `Welcome! We sent a link to ${user.email}: confirm it to unlock your full allowance.`, "success");
       router.push(nextPath());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -45,6 +47,57 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     }
   };
 
+  return (
+    <AuthShell
+      km={isLogin ? "ចូលគណនី" : "បង្កើតគណនី"}
+      title={isLogin ? "Welcome back" : "Create your account"}
+      subtitle={isLogin ? "Sign in to clone voices and keep your transcripts." : "Free. Save voices and your transcription history."}
+      bubble={isLogin ? "ជំរាបសួរ" : "សួស្តី"}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        {!isLogin && (
+          <Field label="Name (optional)">
+            {(id) => <Input id={id} name="full_name" autoComplete="name" maxLength={100} placeholder="Sokha" />}
+          </Field>
+        )}
+        <Field label="Email">
+          {(id) => <Input id={id} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />}
+        </Field>
+        <Field label="Password" hint={isLogin
+          ? <Link href="/forgot-password" className="font-medium text-accent hover:underline">Forgot your password?</Link>
+          : "At least 8 characters."}>
+          {(id) => (
+            <Input id={id} name="password" type="password" required minLength={isLogin ? undefined : 8}
+              autoComplete={isLogin ? "current-password" : "new-password"} />
+          )}
+        </Field>
+
+        {error && (
+          <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1, x: [0, -6, 6, -3, 0] }}
+            className="rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose">
+            {error}
+          </motion.p>
+        )}
+
+        <Button type="submit" loading={busy} className="w-full" size="lg">
+          {isLogin ? "Sign in" : "Create account"}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-ink-soft">
+        {isLogin ? "New here? " : "Already have an account? "}
+        <Link href={isLogin ? "/register" : "/login"} className="font-medium text-accent hover:underline">
+          {isLogin ? "Create an account" : "Sign in"}
+        </Link>
+      </p>
+    </AuthShell>
+  );
+}
+
+/** Split-screen frame shared by the sign-in, sign-up and account-recovery pages. */
+export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", children }: {
+  km: string; title: string; subtitle: ReactNode; bubble?: string; children: ReactNode;
+}) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand panel */}
@@ -58,7 +111,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <TwinVoicesDoodle className="w-full text-ink" label="Doodle of a face and its dashed voice clone" />
           </motion.div>
           <motion.div className="absolute -top-16 right-0" animate={{ y: [0, -8, 0] }} transition={{ duration: 4, repeat: Infinity }}>
-            <SpeechBubbleDoodle className="h-24 w-28 text-ink" text={isLogin ? "ជំរាបសួរ" : "សួស្តី"} />
+            <SpeechBubbleDoodle className="h-24 w-28 text-ink" text={bubble} />
           </motion.div>
           <SparkleDoodle className="absolute -left-4 top-0 size-8" />
           <WaveformDoodle className="mx-auto mt-6 h-12 w-36 text-ink" />
@@ -81,46 +134,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <div className="flex flex-1 items-center justify-center px-4 pb-16">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}
             className="w-full max-w-sm">
-            <p className="khmer text-sm text-accent">{isLogin ? "ចូលគណនី" : "បង្កើតគណនី"}</p>
-            <h1 className="text-3xl font-bold tracking-tight">{isLogin ? "Welcome back" : "Create your account"}</h1>
-            <p className="mb-8 mt-1 text-ink-soft">
-              {isLogin ? "Sign in to clone voices and keep your transcripts." : "Free. Save voices and your transcription history."}
-            </p>
-
-            <form onSubmit={submit} className="space-y-4">
-              {!isLogin && (
-                <Field label="Name (optional)">
-                  {(id) => <Input id={id} name="full_name" autoComplete="name" maxLength={100} placeholder="Sokha" />}
-                </Field>
-              )}
-              <Field label="Email">
-                {(id) => <Input id={id} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />}
-              </Field>
-              <Field label="Password" hint={isLogin ? undefined : "At least 8 characters."}>
-                {(id) => (
-                  <Input id={id} name="password" type="password" required minLength={isLogin ? undefined : 8}
-                    autoComplete={isLogin ? "current-password" : "new-password"} />
-                )}
-              </Field>
-
-              {error && (
-                <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1, x: [0, -6, 6, -3, 0] }}
-                  className="rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose">
-                  {error}
-                </motion.p>
-              )}
-
-              <Button type="submit" loading={busy} className="w-full" size="lg">
-                {isLogin ? "Sign in" : "Create account"}
-              </Button>
-            </form>
-
-            <p className="mt-6 text-center text-sm text-ink-soft">
-              {isLogin ? "New here? " : "Already have an account? "}
-              <Link href={isLogin ? "/register" : "/login"} className="font-medium text-accent hover:underline">
-                {isLogin ? "Create an account" : "Sign in"}
-              </Link>
-            </p>
+            <p className="khmer text-sm text-accent">{km}</p>
+            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+            <p className="mb-8 mt-1 text-ink-soft">{subtitle}</p>
+            {children}
           </motion.div>
         </div>
       </div>
