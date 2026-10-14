@@ -30,6 +30,7 @@ from typing import Literal
 from fastapi import Depends, Request
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -201,25 +202,43 @@ class Limits:
         charge = Charge(math.ceil(amount))
         reserved = charge.amount
         await self._reserve(quota, caller, reserved)
+        # Metered up front, before the block can queue a job whose worker may settle it.
+        await self.meter(caller.api_key_id, quota, reserved)
         try:
             yield charge
         except BaseException:
             await self._add(quota, caller, -reserved)
+            await self.meter(caller.api_key_id, quota, -reserved, requests=-1)
             raise
         if charge.amount != reserved:
             await self._add(quota, caller, charge.amount - reserved)
-        if caller.api_key_id:
-            await self.meter(caller.api_key_id, quota, charge.amount)
+            await self.meter(caller.api_key_id, quota, charge.amount - reserved, requests=0)
 
-    async def meter(self, api_key_id: uuid.UUID, quota: Quota, amount: int) -> None:
-        """Add one request of `amount` to the key's durable usage for today."""
-        if self._sessionmaker is None:
+    async def charge(self, quota: Quota, caller: Caller, amount: int, requests: int = 0) -> None:
+        """Add `amount` to today's usage now, for work paid as it streams in (live dictation).
+
+        With amount=0 it just checks that some allowance is left. Raises QuotaExceeded.
+        """
+        await self._reserve(quota, caller, amount)
+        await self.meter(caller.api_key_id, quota, amount, requests=requests)
+
+    def job_charge(self, quota: Quota, caller: Caller, charge: Charge) -> "JobCharge":
+        """What a queued job was charged, for its worker to settle (see services/job_billing.py)."""
+        from app.services.job_billing import JobCharge
+
+        return JobCharge(quota=quota, quota_key=self.quota_key(quota, caller), amount=charge.amount,
+                         api_key_id=str(caller.api_key_id or ""), day=self._today().date().isoformat())
+
+    async def meter(self, api_key_id: uuid.UUID | None, quota: Quota, amount: int, requests: int = 1) -> None:
+        """Add `amount` (and `requests`) to the key's durable usage for today; negatives undo."""
+        if api_key_id is None or self._sessionmaker is None or (amount == 0 and requests == 0):
             return
         stmt = insert(ApiKeyUsage).values(api_key_id=api_key_id, day=self._today().date(), quota=quota,
-                                          amount=amount, requests=1)
+                                          amount=max(amount, 0), requests=max(requests, 0))
         stmt = stmt.on_conflict_do_update(
             index_elements=[ApiKeyUsage.api_key_id, ApiKeyUsage.day, ApiKeyUsage.quota],
-            set_={"amount": ApiKeyUsage.amount + stmt.excluded.amount, "requests": ApiKeyUsage.requests + 1})
+            set_={"amount": func.greatest(ApiKeyUsage.amount + amount, 0),
+                  "requests": func.greatest(ApiKeyUsage.requests + requests, 0)})
         async with self._sessionmaker() as session:
             await session.execute(stmt)
             await session.commit()

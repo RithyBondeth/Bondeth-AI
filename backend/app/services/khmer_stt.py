@@ -21,6 +21,9 @@ import numpy as np
 SAMPLE_RATE = 16_000
 N_FRAMES = 3_000  # Whisper's fixed 30 s input window
 MAX_CHUNK_S = 29.0
+# Khmer speech runs ~8 tokens/s (14 at most on FLEURS). Capping output at about twice that per
+# second of audio stops a decoding loop early instead of letting it run to Whisper's 448 tokens.
+MAX_TOKENS_PER_S = 25
 
 _SPECIAL_RE = re.compile(r"<\|.*\|>")
 _KHMER_GAP_RE = re.compile(r"(?<=[ក-៿])\s+(?=[ក-៿])")
@@ -60,7 +63,8 @@ class KhmerWhisperEngine:
         self._prompt = [vocab.index(t) for t in
                         ("<|startoftranscript|>", "<|km|>", "<|transcribe|>", "<|notimestamps|>")]
 
-    def transcribe(self, audio: np.ndarray, on_chunk: Callable[[KhmerChunk], None] | None = None) -> list[KhmerChunk]:
+    def transcribe(self, audio: np.ndarray, on_chunk: Callable[[KhmerChunk], None] | None = None,
+                   beam_size: int | None = None) -> list[KhmerChunk]:
         from faster_whisper.vad import VadOptions, get_speech_timestamps
 
         # Split on silence into <30 s pieces so long recordings fit Whisper's window.
@@ -75,8 +79,8 @@ class KhmerWhisperEngine:
             results = self._model.generate(
                 self._ct2.StorageView.from_array(feats),
                 [self._prompt] * len(batch),
-                beam_size=self._beam_size,
-                max_length=448,
+                beam_size=beam_size or self._beam_size,
+                max_length=min(448, 16 + int(MAX_TOKENS_PER_S * max(s["end"] - s["start"] for s in batch) / SAMPLE_RATE)),
             )
             for span, res in zip(batch, results):
                 ids = [t for t in res.sequences_ids[0] if t not in self._special_ids]

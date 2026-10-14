@@ -28,7 +28,7 @@ Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើង
 
 | Feature | Engine | What it does |
 | --- | --- | --- |
-| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). About **18% CER** on FLEURS Khmer |
+| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). **Live dictation** streams the microphone over a WebSocket and shows text as you speak (needs a GPU to feel real-time; on CPU-only servers set `BONDETH_STT_LIVE_PARTIALS=false`). About **18% CER** on FLEURS Khmer |
 | **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. Repeated phrases are served from a Redis cache |
 | **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Clones a voice from a 3-30 s sample (consent required) and speaks any Khmer or English text. Runs as a queued job that survives restarts |
 | **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, email verification, password reset by email, account deletion, transcription history, saved voices |
@@ -102,7 +102,7 @@ Verification and password-reset emails go through `BONDETH_EMAIL_BACKEND`. The d
 └──────────────────────────────────────────┬────────────────────────────────────────────────┘
                                            │ REST + JWT
 ┌──────────────────────────────── FastAPI (backend/) ───────────────────────────────────────┐
-│  /auth  /api-keys  /stt(/jobs)  /tts  /clone  /voices  /transcriptions  /usage  /health  │
+│  /auth  /api-keys  /stt(/jobs,/live)  /tts  /clone  /voices  /transcriptions  /usage  …  │
 │  Khmer & English normalizers · script splitting for mixed text · rate limits · quotas    │
 ├──────────────────┬──────────────────┬──────────────────────────┬─────────────────────────┤
 │ STT + job worker │ TTS              │ Clone worker (thread)     │ PostgreSQL · Redis      │
@@ -128,6 +128,7 @@ Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://hugg
 
 - [Master Project Blueprint (PDF)](docs/Bondeth_AI_Master_Blueprint.pdf): the original proposal, requirements, architecture, business model and infrastructure costs.
 - [frontend/README.md](frontend/README.md): pages and design system.
+- [deploy/gpu/README.md](deploy/gpu/README.md): evaluating VoxCPM2 and live-dictation latency on a rented GPU (one command, report with targets).
 
 ## Project Structure
 

@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     stt_job_max_queue: int = 20
     stt_job_result_ttl_s: int = 3600
     stt_worker_enabled: bool = True
+    # Live dictation (WebSocket /stt/live): microphone audio in, partial and final text out.
+    stt_live_max_s: int = 600  # longest session, seconds of audio
+    stt_live_pause_s: float = 0.6  # silence that finalizes a phrase
+    stt_live_max_window_s: float = 25.0
+    # Re-transcribe the phrase in progress to show it as you speak. Each pass costs a full Whisper
+    # encoder run (~7 s on a busy laptop CPU, a fraction of a second on a GPU), so on CPU-only
+    # servers set this to false: phrases then appear once you pause, without queueing behind previews.
+    stt_live_partials: bool = True
 
     # Khmer STT: Khmer fine-tuned Whisper (MIT), CTranslate2 int8. Pinned for reproducibility.
     stt_km_model: str = "kavatana/whisper-turbo-khmer-v9-ct2-int8"

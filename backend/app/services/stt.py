@@ -110,6 +110,16 @@ class SttService:
         from faster_whisper.audio import decode_audio
 
         audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
+        return self.transcribe_audio(audio, language, on_start, on_segment)
+
+    def transcribe_audio(self, audio, language: str | None = None,
+                         on_start: Callable[[str, float, float], None] | None = None,
+                         on_segment: Callable[[Segment, str], None] | None = None,
+                         beam_size: int | None = None) -> Transcription:
+        """Like `transcribe`, for 16 kHz mono float32 samples already in memory (live dictation).
+
+        `beam_size=1` (greedy) is several times faster, for previews that are replaced anyway.
+        """
         duration = round(len(audio) / SAMPLE_RATE, 2)
 
         with self._slots:
@@ -121,14 +131,14 @@ class SttService:
                 on_start(language, round(probability, 3), duration)
 
             if language == "en":
-                segments = self._transcribe_english(audio, on_segment)
+                segments = self._transcribe_english(audio, on_segment, beam_size)
                 text = " ".join(s.text for s in segments)
                 segmented = text
             else:
                 def on_chunk(c):
                     if on_segment:
                         on_segment(Segment(c.start, c.end, c.text), c.segmented)
-                chunks = self._load_khmer().transcribe(audio, on_chunk)
+                chunks = self._load_khmer().transcribe(audio, on_chunk, beam_size)
                 segments = [Segment(c.start, c.end, c.text) for c in chunks]
                 text = " ".join(c.text for c in chunks)
                 segmented = " ".join(c.segmented for c in chunks)
@@ -142,6 +152,18 @@ class SttService:
             segments=segments,
         )
 
+    def detect_language(self, audio) -> str:
+        """"km" or "en" for 16 kHz samples, with the same rule as auto mode."""
+        with self._slots:
+            return self._detect(audio)[0]
+
+    def speech_spans(self, audio) -> list[tuple[float, float]]:
+        """(start, end) seconds of speech in 16 kHz samples, from the Silero VAD bundled with faster-whisper."""
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+        spans = get_speech_timestamps(audio, VadOptions(min_silence_duration_ms=300))
+        return [(s["start"] / SAMPLE_RATE, s["end"] / SAMPLE_RATE) for s in spans]
+
     def _detect(self, audio) -> tuple[str, float]:
         _, _, all_probs = self._load_whisper().detect_language(audio)
         p_en = dict(all_probs).get("en", 0.0)
@@ -149,11 +171,12 @@ class SttService:
             return "en", p_en
         return "km", 1.0 - p_en
 
-    def _transcribe_english(self, audio, on_segment: Callable[[Segment, str], None] | None = None) -> list[Segment]:
+    def _transcribe_english(self, audio, on_segment: Callable[[Segment, str], None] | None = None,
+                            beam_size: int | None = None) -> list[Segment]:
         segments_iter, _ = self._load_whisper().transcribe(
             audio,
             language="en",
-            beam_size=self._settings.stt_beam_size,
+            beam_size=beam_size or self._settings.stt_beam_size,
             vad_filter=True,  # skip silence: faster and fewer hallucinations
         )
         # `segments_iter` is lazy; decoding actually happens while iterating.

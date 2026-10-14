@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.deps import get_stt_queue
 from app.main import app
 from app.services.stt import Segment, Transcription
+from app.services.job_billing import JobBilling
 from app.services.stt_jobs import PROCESSING_KEY, QUEUE_KEY, SttJobQueue, events_key, job_key
 from tests.conftest import sync_redis
 from tests.fakes import wav_bytes
@@ -37,7 +38,8 @@ class StreamingFakeStt:
 @pytest.fixture
 def env(client):
     stt = StreamingFakeStt()
-    queue = SttJobQueue(sync_redis(), stt, get_settings().data_dir / "stt_jobs", max_pending=10, ttl_s=3600)
+    queue = SttJobQueue(sync_redis(), stt, get_settings().data_dir / "stt_jobs", max_pending=10, ttl_s=3600,
+                        billing=JobBilling(sync_redis(), get_settings().database_url))
     app.dependency_overrides[get_stt_queue] = lambda: queue
     queue.start_worker()
     yield {"stt": stt, "queue": queue}

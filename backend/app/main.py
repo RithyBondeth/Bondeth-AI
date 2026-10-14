@@ -7,12 +7,13 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_keys, auth, clone, health, stt, text, transcriptions, tts, usage, voices
+from app.api.v1 import api_keys, auth, clone, health, live, stt, text, transcriptions, tts, usage, voices
 from app.config import get_settings
 from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
 from app.limits import LimitExceeded, limit_exceeded_handler
 from app.services.clone_jobs import CloneJobQueue
+from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
 
 logging.basicConfig(level=logging.INFO)
@@ -28,13 +29,14 @@ async def lifespan(app: FastAPI):
     app.state.redis_bytes = redis.asyncio.Redis.from_url(settings.redis_url)  # binary values (TTS cache)
     # The clone worker is a plain thread, so it gets its own synchronous client.
     sync_redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+    billing = JobBilling(sync_redis, settings.database_url)
     app.state.clone_queue = CloneJobQueue(
         sync_redis, get_clone_service().run, settings.data_dir / "clone_jobs",
-        max_pending=settings.clone_max_queue, ttl_s=settings.clone_result_ttl_s,
+        max_pending=settings.clone_max_queue, ttl_s=settings.clone_result_ttl_s, billing=billing,
     )
     app.state.stt_queue = SttJobQueue(
         sync_redis, get_stt_service(), settings.data_dir / "stt_jobs",
-        max_pending=settings.stt_job_max_queue, ttl_s=settings.stt_job_result_ttl_s,
+        max_pending=settings.stt_job_max_queue, ttl_s=settings.stt_job_result_ttl_s, billing=billing,
     )
 
     if settings.stt_preload:
@@ -74,7 +76,7 @@ def create_app() -> FastAPI:
     )
     app.add_exception_handler(LimitExceeded, limit_exceeded_handler)
 
-    for router in (health, auth, api_keys, text, stt, transcriptions, tts, voices, clone, usage):
+    for router in (health, auth, api_keys, text, stt, live, transcriptions, tts, voices, clone, usage):
         app.include_router(router.router, prefix="/api/v1")
     return app
 

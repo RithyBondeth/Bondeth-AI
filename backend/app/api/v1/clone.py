@@ -86,10 +86,11 @@ async def create_clone_job(
     if len(text) > settings.clone_max_chars:
         raise HTTPException(413, f"Text exceeds {settings.clone_max_chars} characters")
 
-    # One job of today's allowance, refunded if the job can't be queued.
-    async with limits.spend("clone_jobs", caller, 1):
+    # One job of today's allowance: refunded if it can't be queued, or by the worker if it fails.
+    async with limits.spend("clone_jobs", caller, 1) as charge:
         job_id = uuid.uuid4().hex
-        common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed)
+        common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed,
+                      charge=limits.job_charge("clone_jobs", caller, charge).dumps())
 
         if voice_id is not None:
             voice = await get_owned_voice(voice_id, user, session)  # consent was given when it was saved
