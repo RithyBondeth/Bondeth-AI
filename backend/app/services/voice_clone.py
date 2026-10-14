@@ -1,8 +1,8 @@
 """Zero-shot voice cloning.
 
-The engine sits behind a small interface so OmniVoice (non-commercial
-weights, runs on Apple Silicon) can later be swapped for a commercially
-licensed model such as VoxCPM2 on a GPU server.
+The engine sits behind a small interface: OmniVoice (default; non-commercial
+weights, runs on Apple Silicon) or VoxCPM2 (BONDETH_CLONE_ENGINE=voxcpm;
+Apache-2.0, best on a CUDA GPU), see services/voxcpm.py.
 
 The reference transcript matters: OmniVoice uses it to align the voice
 sample. Without one, OmniVoice falls back to stock Whisper, which cannot
@@ -18,6 +18,7 @@ import numpy as np
 import soundfile as sf
 
 from app.config import Settings
+from app.services import voxcpm
 from app.services.clone_jobs import CloneJob
 from app.services.stt import SttService
 from app.text.english_normalizer import normalize_english
@@ -59,6 +60,17 @@ class OmniVoiceEngine:
         return self._model.generate(
             text=text, language=language, ref_audio=str(ref_audio), ref_text=ref_text, speed=speed,
         )[0]
+
+
+class VoxCpmCloneEngine:
+    """VoxCPM2 needs no language tag: Khmer, English and mixed text go in as-is."""
+
+    def __init__(self, settings: Settings):
+        self._vox = voxcpm.VoxCpm(settings)
+        self.sample_rate = self._vox.sample_rate  # loads the model
+
+    def clone(self, text, language, ref_audio, ref_text, speed):
+        return self._vox.clone(text, ref_audio, ref_text, speed)
 
 
 def _resolve_device(device: str) -> str:
@@ -114,8 +126,11 @@ class VoiceCloneService:
             with self._load_lock:
                 if self._engine is None:
                     s = self._settings
-                    self._engine = OmniVoiceEngine(
-                        s.clone_model, s.clone_model_revision, s.model_dir / "hf" / "hub", s.clone_device)
+                    if s.clone_engine == "voxcpm":
+                        self._engine = VoxCpmCloneEngine(s)
+                    else:
+                        self._engine = OmniVoiceEngine(
+                            s.clone_model, s.clone_model_revision, s.model_dir / "hf" / "hub", s.clone_device)
         return self._engine
 
     def run(self, job: CloneJob) -> None:

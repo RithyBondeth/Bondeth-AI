@@ -114,8 +114,9 @@ The engines' **code** is open source, but some **pretrained weights** are non-co
 | faster-whisper, Whisper `large-v3-turbo`, whisper-turbo-khmer-v9 | MIT |
 | Meta MMS-TTS weights (`facebook/mms-tts-*`) | CC BY-NC 4.0 (non-commercial) |
 | OmniVoice weights | CC BY-NC (non-commercial) |
+| VoxCPM2 weights (`openbmb/VoxCPM2`), optional engine | Apache-2.0 (commercial use OK) |
 
-Before any paid offering, TTS and voice cloning need commercially licensed weights. [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) (Apache 2.0, supports Khmer) is a candidate on GPU servers; the clone engine is behind a swappable interface.
+Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2): set `BONDETH_TTS_ENGINE=voxcpm` and `BONDETH_CLONE_ENGINE=voxcpm`. It supports Khmer, outputs 48 kHz, and wants a CUDA GPU with ~8 GB of VRAM (the GPU Docker image includes it; locally, `pip install -r backend/requirements-voxcpm.txt`). Standard TTS uses a house voice designed once from `BONDETH_VOXCPM_HOUSE_VOICE`. Speed is passed to VoxCPM2 as a style hint, so it's approximate.
 
 ## Documentation
 

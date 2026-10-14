@@ -5,11 +5,16 @@
 # Builds the backend with CUDA 12.6 PyTorch (which also provides the cuBLAS/cuDNN that
 # faster-whisper's CTranslate2 needs) and runs every model on the GPU in float16.
 # A 16 GB card (e.g. T4) fits STT + TTS + voice cloning together.
+#
+# The GPU image also includes VoxCPM2 (Apache-2.0, ~8 GB VRAM), the commercially
+# usable TTS/cloning engine. Turn it on in .env: BONDETH_TTS_ENGINE=voxcpm and/or
+# BONDETH_CLONE_ENGINE=voxcpm.
 
 x-gpu-build: &gpu-build
   context: ./backend
   args:
     TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    WITH_VOXCPM: "true"
 
 services:
   migrate:
@@ -24,6 +29,7 @@ services:
       BONDETH_STT_COMPUTE_TYPE: float16
       BONDETH_STT_KM_COMPUTE_TYPE: int8_float16
       BONDETH_CLONE_DEVICE: cuda
+      BONDETH_VOXCPM_DEVICE: cuda
       BONDETH_STT_MAX_CONCURRENCY: "2"
     deploy:
       resources:
