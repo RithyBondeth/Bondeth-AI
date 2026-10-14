@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+
+    # The same images as docker-compose.yml. conftest.py uses the bondeth_test database and Redis DB 15.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bondeth
+          POSTGRES_PASSWORD: bondeth
+          POSTGRES_DB: bondeth_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bondeth -d bondeth_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements*.txt
+
+      # CPU PyTorch first (as in the Dockerfile) so pip doesn't pull the multi-GB CUDA build.
+      - name: Install dependencies
+        run: |
+          uv venv .venv
+          uv pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1 torchaudio==2.11.0
+          uv pip install -r requirements-dev.txt
+
+      # Real-model tests stay opt-in (BONDETH_RUN_MODEL_TESTS); everything else uses fake engines.
+      - name: Run tests
+        run: .venv/bin/python -m pytest -q -p no:cacheprovider
+
+  frontend:
+    name: Frontend lint, types and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24  # matches frontend/Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  compose:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose files
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml config --quiet
