@@ -128,6 +128,7 @@ Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://hugg
 
 - [Master Project Blueprint (PDF)](docs/Bondeth_AI_Master_Blueprint.pdf): the original proposal, requirements, architecture, business model and infrastructure costs.
 - [frontend/README.md](frontend/README.md): pages and design system.
+- [deploy/gpu/README.md](deploy/gpu/README.md): evaluating VoxCPM2 and live-dictation latency on a rented GPU (one command, report with targets).
 
 ## Project Structure
 
