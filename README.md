@@ -30,6 +30,7 @@ Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើង
 | **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. Repeated phrases are served from a Redis cache |
 | **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Clones a voice from a 3-30 s sample (consent required) and speaks any Khmer or English text. Runs as a queued job that survives restarts |
 | **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, transcription history, saved voices |
+| **Developer API keys** | PostgreSQL | Per-app keys (`X-API-Key: bdk_...`) for the whole API, revocable, with daily usage metered per key |
 | **Usage limits** | Redis | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage` |
 
 The web app is a studio-style Next.js UI with light/dark themes, animations and hand-drawn doodles.
@@ -85,7 +86,7 @@ Every caller (the signed-in user, otherwise the client IP) has a per-minute rate
 | Text-to-speech | 5,000 characters | 50,000 |
 | Voice cloning | needs an account | 20 jobs |
 
-Going over returns `429` with a `Retry-After` header. Failed requests are refunded. All limits are `BONDETH_RATE_LIMIT_*` / `BONDETH_QUOTA_*` settings (see [backend/.env.example](backend/.env.example)), and `BONDETH_LIMITS_ENABLED=false` keeps counting usage without blocking anything. If a reverse proxy sits in front of the backend, set `FORWARDED_ALLOW_IPS` to its address so limits apply to real client IPs.
+Requests made with a developer API key (created under **API keys** in the studio) have their own rate-limit bucket per key (60/min), share the account's daily allowance, and are metered per key and day in PostgreSQL. Going over returns `429` with a `Retry-After` header. Failed requests are refunded. All limits are `BONDETH_RATE_LIMIT_*` / `BONDETH_QUOTA_*` settings (see [backend/.env.example](backend/.env.example)), and `BONDETH_LIMITS_ENABLED=false` keeps counting usage without blocking anything. If a reverse proxy sits in front of the backend, set `FORWARDED_ALLOW_IPS` to its address so limits apply to real client IPs.
 
 ## Architecture
 

@@ -1,4 +1,4 @@
-import { AudioLines, History, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
+import { AudioLines, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; km: string; icon: LucideIcon; description: string };
 
@@ -16,6 +16,8 @@ export const LIBRARY: NavItem[] = [
     description: "Every transcript you've saved." },
   { href: "/voices", label: "Voices", km: "សំឡេងរបស់អ្នក", icon: Library,
     description: "Voice samples you can clone from." },
+  { href: "/api-keys", label: "API keys", km: "កូនសោ API", icon: KeyRound,
+    description: "Keys for calling Bondeth AI from your own apps." },
 ];
 
 export function findNav(pathname: string): NavItem | undefined {
