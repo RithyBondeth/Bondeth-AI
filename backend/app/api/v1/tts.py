@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.config import Settings, get_settings
 from app.deps import get_tts_service
+from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
 
 router = APIRouter(prefix="/tts", tags=["text-to-speech"])
@@ -34,12 +35,16 @@ async def text_to_speech(
     req: TtsRequest,
     settings: Settings = Depends(get_settings),
     tts: TtsService = Depends(get_tts_service),
+    caller: Caller = Depends(rate_limit("tts")),
+    limits: Limits = Depends(get_limits),
 ) -> Response:
+    """Public. Counts against the daily text-to-speech allowance (see GET /usage)."""
     _check_length(req, settings)
-    try:
-        wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
-    except NothingToSpeak as exc:
-        raise HTTPException(422, str(exc)) from exc
+    async with limits.spend("tts_chars", caller, len(req.text)):
+        try:
+            wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
+        except NothingToSpeak as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     return Response(
         content=to_wav_bytes(wave, sr),
@@ -51,7 +56,7 @@ async def text_to_speech(
     )
 
 
-@router.post("/preview", response_model=TtsPreview)
+@router.post("/preview", response_model=TtsPreview, dependencies=[Depends(rate_limit("tts_preview", cheap=True))])
 def preview(
     req: TtsRequest,
     settings: Settings = Depends(get_settings),

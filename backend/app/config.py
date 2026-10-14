@@ -69,6 +69,20 @@ class Settings(BaseSettings):
     clone_worker_enabled: bool = True  # disable on API-only replicas that shouldn't load the model
     max_voices_per_user: int = 10
 
+    # Abuse protection and daily allowances (see limits.py). A caller is the signed-in
+    # user, otherwise the client IP. false = count usage but never block.
+    limits_enabled: bool = True
+    rate_limit_window_s: int = 60
+    rate_limit_anon: int = 10  # requests per window, per endpoint group
+    rate_limit_user: int = 30
+    rate_limit_cheap: int = 120  # endpoints that run no model, e.g. the TTS preview while typing
+    quota_utc_offset_hours: int = 7  # allowances reset at midnight here (Cambodia)
+    quota_stt_seconds_anon: int = 600  # audio transcribed per day
+    quota_stt_seconds_user: int = 3600
+    quota_tts_chars_anon: int = 5_000  # characters spoken per day
+    quota_tts_chars_user: int = 50_000
+    quota_clone_jobs_user: int = 20  # cloning always needs an account
+
     @model_validator(mode="after")
     def _require_real_secret_outside_dev(self):
         if self.env not in ("development", "test") and (

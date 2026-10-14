@@ -1,8 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { sessionStore, type User } from "@/lib/api";
+import { apiJson, onUsageChange, sessionStore, type User } from "@/lib/api";
+import type { Usage } from "@/lib/types";
 
 const noopSubscribe = () => () => {};
 
@@ -14,4 +15,21 @@ export function useHydrated(): boolean {
 /** The signed-in user, or null. Updates on sign-in/out, including from other tabs. */
 export function useUser(): User | null {
   return useSyncExternalStore(sessionStore.subscribe, sessionStore.get, sessionStore.getServer)?.user ?? null;
+}
+
+/** Today's usage and allowances; refetched on sign-in/out and after each metered request. */
+export function useUsage(): Usage | null {
+  const userId = useUser()?.id;
+  const [usage, setUsage] = useState<Usage | null>(null);
+  useEffect(() => {
+    let active = true;
+    const load = () => apiJson<Usage>("/api/v1/usage").then((u) => active && setUsage(u), () => {});
+    load();
+    const off = onUsageChange(load);
+    return () => {
+      active = false;
+      off();
+    };
+  }, [userId]);
+  return usage;
 }

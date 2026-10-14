@@ -49,4 +49,6 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4).status == 200 else 1)"
 
 # One worker: models are loaded per process and the clone worker assumes a single consumer.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# X-Forwarded-For is trusted only from FORWARDED_ALLOW_IPS (uvicorn's default: 127.0.0.1); trusting
+# everyone would let clients pick their own IP and dodge the per-IP rate limits and quotas.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
