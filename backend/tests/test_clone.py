@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.deps import get_clone_queue, get_stt_service
 from app.main import app
 from app.services.clone_jobs import PROCESSING_KEY, QUEUE_KEY, CloneJobQueue
+from app.services.job_billing import JobBilling
 from app.services.voice_clone import VoiceCloneService, prepare_text
 from tests.conftest import sync_redis
 from tests.fakes import FakeEngine, FakeStt, wav_bytes
@@ -18,7 +19,8 @@ from tests.fakes import FakeEngine, FakeStt, wav_bytes
 
 def make_queue(service: VoiceCloneService, max_pending: int = 10, ttl_s: int = 3600) -> CloneJobQueue:
     return CloneJobQueue(sync_redis(), service.run, get_settings().data_dir / "clone_jobs",
-                         max_pending=max_pending, ttl_s=ttl_s)
+                         max_pending=max_pending, ttl_s=ttl_s,
+                         billing=JobBilling(sync_redis(), get_settings().database_url))
 
 
 @pytest.fixture

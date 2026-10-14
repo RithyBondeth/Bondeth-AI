@@ -173,7 +173,7 @@ async def create_stt_job(
             raise HTTPException(422, "Could not read the audio file.")
         async with limits.spend("stt_seconds", caller, duration) as charge:
             job = SttJob(id=job_id, audio_path=path, language=language, user_id=str(user.id) if user else "",
-                         quota_key=limits.quota_key("stt_seconds", caller), charged=charge.amount)
+                         charge=limits.job_charge("stt_seconds", caller, charge).dumps())
             try:
                 await run_in_threadpool(queue.submit, job)
             except QueueFull as exc:
