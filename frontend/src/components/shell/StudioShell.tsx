@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenText, Lock, LogIn, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { BookOpenText, Lock, LogIn, LogOut, MailWarning, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,9 +10,10 @@ import { Aurora } from "@/components/Aurora";
 import { MicDoodle, TwinVoicesDoodle } from "@/components/doodles";
 import { RecentsProvider } from "@/components/shell/Recents";
 import { UsageMeter } from "@/components/shell/UsageMeter";
+import { useResendVerification } from "@/components/studios/AccountSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconButton, cx } from "@/components/ui";
-import { API_URL, logout } from "@/lib/api";
+import { API_URL, logout, refreshUser } from "@/lib/api";
 import { useHydrated, useUser } from "@/lib/hooks";
 import { LIBRARY, WORKSPACES, findNav, type NavItem } from "@/lib/nav";
 import { toggleSidebar } from "@/lib/theme";
@@ -27,6 +28,9 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const current = findNav(pathname);
+
+  // Sync the stored user once per visit (email confirmed elsewhere, or a session ended by a password reset).
+  useEffect(() => { refreshUser().catch(() => {}); }, []);
 
   // Close the mobile drawer whenever the route changes.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -85,7 +89,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+            <VerifyBanner />
+            {children}
+          </main>
         </div>
       </div>
     </RecentsProvider>
@@ -130,14 +137,15 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
           "in-data-[sidebar=collapsed]:lg:flex-col")}>
           {user ? (
             <>
-              <span title={user.email}
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-lilac-soft text-sm font-bold uppercase text-lilac">
-                {(user.full_name || user.email)[0]}
-              </span>
-              <span className={cx("min-w-0 flex-1 leading-tight", hide)}>
-                <span className="block truncate text-sm font-medium">{user.full_name || "Signed in"}</span>
-                <span className="block truncate text-xs text-ink-soft">{user.email}</span>
-              </span>
+              <Link href="/account" title="Account" className="flex min-w-0 flex-1 items-center gap-2 rounded-xl hover:bg-surface-2">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lilac-soft text-sm font-bold uppercase text-lilac">
+                  {(user.full_name || user.email)[0]}
+                </span>
+                <span className={cx("min-w-0 flex-1 leading-tight", hide)}>
+                  <span className="block truncate text-sm font-medium">{user.full_name || "Signed in"}</span>
+                  <span className="block truncate text-xs text-ink-soft">{user.email}</span>
+                </span>
+              </Link>
               <SignOutButton />
             </>
           ) : (
@@ -194,6 +202,26 @@ function NavSection({ title, items, pathname, hide, locked }: {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** Shown until a signed-in user confirms their email (they only get the signed-out allowance until then). */
+function VerifyBanner() {
+  const user = useUser();
+  const { resend, sending } = useResendVerification();
+  if (user?.email_verified !== false) return null;
+  return (
+    <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-accent-soft px-4 py-3 text-sm">
+      <MailWarning className="size-5 shrink-0 text-accent" />
+      <p className="min-w-0 flex-1">
+        <strong>Confirm your email</strong> to unlock voice cloning, API keys and the full daily allowance.
+        We sent a link to {user.email}.
+      </p>
+      <button type="button" onClick={() => resend(user.email)} disabled={sending}
+        className="rounded-xl px-3 py-1.5 font-medium text-accent hover:bg-surface disabled:opacity-60">
+        {sending ? "Sending…" : "Resend link"}
+      </button>
     </div>
   );
 }

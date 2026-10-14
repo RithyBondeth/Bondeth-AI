@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.db import ApiKey, User, get_db
-from app.security import InvalidToken, decode_token
+from app.security import InvalidToken, decode_token, issued_before_cutoff
 
 # auto_error=False so public endpoints can accept an optional credential.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -73,6 +73,9 @@ async def _user_from_token(token: str, session: AsyncSession, settings: Settings
     user = await session.get(User, user_id)
     if user is None:
         raise HTTPException(401, "Account no longer exists", headers=_UNAUTHORIZED)
+    if issued_before_cutoff(claims["iat"], user.sessions_valid_after):
+        raise HTTPException(401, "Your session ended (the password was changed). Please sign in again.",
+                            headers=_UNAUTHORIZED)
     return user
 
 

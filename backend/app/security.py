@@ -1,4 +1,4 @@
-"""Passwords, JWTs and login throttling.
+"""Passwords, JWTs, login throttling and one-time email tokens.
 
 - Passwords: Argon2 (pwdlib).
 - Access tokens: short-lived JWTs, verified statelessly on every request.
@@ -7,6 +7,8 @@
   it, so a stolen or old refresh token stops working.
 """
 
+import hashlib
+import secrets
 import time
 import uuid
 from dataclasses import dataclass
@@ -64,7 +66,7 @@ def _encode(user_id: str, token_type: TokenType, ttl_s: int, settings: Settings,
 def decode_token(token: str, expected: TokenType, settings: Settings, verify_exp: bool = True) -> dict:
     try:
         claims = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
-                            options={"verify_exp": verify_exp, "require": ["sub", "type", "exp"]})
+                            options={"verify_exp": verify_exp, "require": ["sub", "type", "exp", "iat"]})
     except jwt.PyJWTError as exc:
         raise InvalidToken(str(exc)) from exc
     if claims["type"] != expected:
@@ -128,3 +130,30 @@ class LoginThrottle:
 
     async def reset(self, email: str, ip: str) -> None:
         await self._redis.delete(self._key(email, ip))
+
+
+# --- One-time email tokens (verification, password reset) ------------------------------
+
+def _one_time_key(purpose: str, token: str) -> str:
+    # Only a hash is stored, so reading Redis doesn't hand out working links.
+    return f"auth:{purpose}:{hashlib.sha256(token.encode()).hexdigest()}"
+
+
+async def create_one_time_token(redis: Redis, purpose: str, user_id: str, ttl_s: int) -> str:
+    token = secrets.token_urlsafe(32)
+    await redis.set(_one_time_key(purpose, token), f"{user_id}:{int(time.time())}", ex=ttl_s)
+    return token
+
+
+async def consume_one_time_token(redis: Redis, purpose: str, token: str) -> tuple[str, int] | None:
+    """(user_id, issued_at) for a valid token, which is then used up; None if unknown or expired."""
+    value = await redis.getdel(_one_time_key(purpose, token))
+    if value is None:
+        return None
+    user_id, issued_at = value.rsplit(":", 1)
+    return user_id, int(issued_at)
+
+
+def issued_before_cutoff(issued_at: int, sessions_valid_after) -> bool:
+    """True for a token issued before the user's session cutoff (e.g. a password reset)."""
+    return sessions_valid_after is not None and issued_at < int(sessions_valid_after.timestamp())

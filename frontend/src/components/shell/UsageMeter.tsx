@@ -52,7 +52,12 @@ export function UsageMeter({ className }: { className?: string }) {
       </ul>
       <p className="mt-3 text-[11px] leading-snug text-ink-faint">
         Resets at {new Date(usage.resets_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.
-        {!usage.signed_in && (
+        {usage.account === "unverified" ? (
+          <>
+            {" "}
+            <Link href="/account" className="font-medium text-accent hover:underline">Confirm your email</Link> for more.
+          </>
+        ) : !usage.signed_in && (
           <>
             {" "}
             <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="font-medium text-accent hover:underline">
