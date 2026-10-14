@@ -73,6 +73,11 @@ export const sessionStore = {
 const METERED = /^\/api\/v1\/(stt|tts|clone)(\/jobs)?\/?(\?|$)/;
 const usageListeners = new Set<() => void>();
 
+/** Tell the usage meter to refetch (for metered work that doesn't go through api(), e.g. dictation). */
+export function notifyUsageChanged(): void {
+  usageListeners.forEach((fn) => fn());
+}
+
 export function onUsageChange(fn: () => void): () => void {
   usageListeners.add(fn);
   return () => usageListeners.delete(fn);

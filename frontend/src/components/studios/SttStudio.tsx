@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
 import { MicDoodle, NotebookDoodle, WaveformDoodle } from "@/components/doodles";
+import { LiveDictation } from "@/components/studios/LiveDictation";
 import { Intro, errorText } from "@/components/studios/shared";
 import {
   Badge, Button, EmptyState, IconButton, LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, cx, useToast,
@@ -30,6 +31,7 @@ export function SttStudio() {
   const [live, setLive] = useState<Live | null>(null);
   const [result, setResult] = useState<SttResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [mode, setMode] = useState<"live" | "file">("live");
 
   // Stop following a job when leaving the page.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -72,10 +74,15 @@ export function SttStudio() {
 
   return (
     <>
-      <Intro>Record yourself or upload audio in Khmer or English. Khmer comes back as clean text, with optional word boundaries.</Intro>
+      <Intro>Dictate live, or record and upload audio, in Khmer or English. Khmer comes back as clean text, with optional word boundaries.</Intro>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
+          <Segmented label="Input" value={mode} onChange={(m) => { abortRef.current?.abort(); setMode(m); setResult(null); setBusy(false); setLive(null); }}
+            options={[{ value: "live", label: "Live dictation" }, { value: "file", label: "Record or upload" }]} />
+          {mode === "live" ? (
+            <LiveDictation lang={lang} onResult={setResult} />
+          ) : (
           <Panel>
             <PanelHeader title="Audio" km="សំឡេង" />
             <div className="space-y-4 p-5">
@@ -92,6 +99,7 @@ export function SttStudio() {
               </Button>
             </div>
           </Panel>
+          )}
 
           <AnimatePresence mode="wait">
             {busy && live?.segments.length ? (
@@ -110,7 +118,7 @@ export function SttStudio() {
               </motion.div>
             ) : result?.text ? (
               <Transcript key={result.text} result={result} />
-            ) : (
+            ) : mode === "live" ? null : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <Panel>
                   <EmptyState doodle={<MicDoodle className="h-24 w-20 text-ink" />} title="Your transcript will appear here">

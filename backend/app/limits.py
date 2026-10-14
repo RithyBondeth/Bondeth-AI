@@ -214,6 +214,14 @@ class Limits:
             await self._add(quota, caller, charge.amount - reserved)
             await self.meter(caller.api_key_id, quota, charge.amount - reserved, requests=0)
 
+    async def charge(self, quota: Quota, caller: Caller, amount: int, requests: int = 0) -> None:
+        """Add `amount` to today's usage now, for work paid as it streams in (live dictation).
+
+        With amount=0 it just checks that some allowance is left. Raises QuotaExceeded.
+        """
+        await self._reserve(quota, caller, amount)
+        await self.meter(caller.api_key_id, quota, amount, requests=requests)
+
     def job_charge(self, quota: Quota, caller: Caller, charge: Charge) -> "JobCharge":
         """What a queued job was charged, for its worker to settle (see services/job_billing.py)."""
         from app.services.job_billing import JobCharge
