@@ -70,7 +70,7 @@ export const sessionStore = {
 // ---------- Usage changes ----------
 
 // Requests that spend part of the daily allowance; the usage meter refetches after each one.
-const METERED = /^\/api\/v1\/(stt|tts|clone)\/?(\?|$)/;
+const METERED = /^\/api\/v1\/(stt|tts|clone)(\/jobs)?\/?(\?|$)/;
 const usageListeners = new Set<() => void>();
 
 export function onUsageChange(fn: () => void): () => void {
@@ -148,6 +148,36 @@ export async function api(path: string, init: RequestInit & { auth?: AuthMode } 
   if (rest.method === "POST" && METERED.test(path)) usageListeners.forEach((fn) => fn());
   if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
   return res;
+}
+
+export type ServerEvent = { event: string; data: unknown };
+
+/**
+ * Follow a Server-Sent Events endpoint. Uses fetch rather than EventSource so the
+ * Authorization header (and token refresh) work. Resolves when the server ends the stream.
+ */
+export async function streamEvents(path: string, onEvent: (e: ServerEvent) => void,
+  init: { auth?: AuthMode; signal?: AbortSignal } = {}): Promise<void> {
+  const res = await api(path, { ...init, headers: { Accept: "text/event-stream" } });
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += value;
+    let end;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      let event = "message";
+      const data: string[] = [];
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7);
+        else if (line.startsWith("data: ")) data.push(line.slice(6));
+      }
+      if (data.length) onEvent({ event, data: JSON.parse(data.join("\n")) });
+    }
+  }
 }
 
 export async function apiJson<T>(path: string, init: RequestInit & { auth?: AuthMode } = {}): Promise<T> {

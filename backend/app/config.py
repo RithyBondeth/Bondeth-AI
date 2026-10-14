@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     stt_max_concurrency: int = 1  # CPU inference is heavy; queue extra requests
     stt_preload: bool = False  # load the models at startup instead of first request
     stt_en_threshold: float = 0.6  # auto mode: English only if detection is this confident
+    # Transcription jobs (POST /stt/jobs): long recordings, segments streamed as they're decoded.
+    stt_job_max_upload_mb: int = 200
+    stt_job_max_queue: int = 20
+    stt_job_result_ttl_s: int = 3600
+    stt_worker_enabled: bool = True
 
     # Khmer STT: Khmer fine-tuned Whisper (MIT), CTranslate2 int8. Pinned for reproducibility.
     stt_km_model: str = "kavatana/whisper-turbo-khmer-v9-ct2-int8"
