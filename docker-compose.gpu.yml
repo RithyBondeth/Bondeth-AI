@@ -1,0 +1,34 @@
+# NVIDIA GPU override (Linux server with the NVIDIA Container Toolkit installed).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up -d --build
+#
+# Builds the backend with CUDA 12.6 PyTorch (which also provides the cuBLAS/cuDNN that
+# faster-whisper's CTranslate2 needs) and runs every model on the GPU in float16.
+# A 16 GB card (e.g. T4) fits STT + TTS + voice cloning together.
+
+x-gpu-build: &gpu-build
+  context: ./backend
+  args:
+    TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+
+services:
+  migrate:
+    build: *gpu-build
+    image: bondeth-ai/backend:gpu
+
+  backend:
+    build: *gpu-build
+    image: bondeth-ai/backend:gpu
+    environment:
+      BONDETH_STT_DEVICE: cuda
+      BONDETH_STT_COMPUTE_TYPE: float16
+      BONDETH_STT_KM_COMPUTE_TYPE: int8_float16
+      BONDETH_CLONE_DEVICE: cuda
+      BONDETH_STT_MAX_CONCURRENCY: "2"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

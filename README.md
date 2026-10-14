@@ -18,95 +18,105 @@
 
 ## Overview
 
-**Bondeth AI** takes its name from the Khmer word *បណ្ឌិត* (*Bondeth*), meaning scholar or master of knowledge. It is a planned, self-hosted voice platform that aims to remove typing and accessibility barriers for Khmer speakers.
+**Bondeth AI** takes its name from the Khmer word *បណ្ឌិត* (*Bondeth*), meaning scholar or master of knowledge. It is a self-hosted voice platform that removes typing and accessibility barriers for Khmer speakers.
 
-Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើងអក្សរ*), and stacked diacritics all add friction. Everyday communication in Cambodia also mixes Khmer and English freely, and proprietary voice APIs charge per-minute fees that local developers can't afford. Bondeth AI plans to address all three with one bilingual suite built on open-source engines.
+Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើងអក្សរ*), and stacked diacritics all add friction. Everyday communication in Cambodia also mixes Khmer and English freely, and proprietary voice APIs charge per-minute fees that local developers can't afford. Bondeth AI addresses all three with one bilingual suite built on open-source engines.
 
-> **Status: pre-production.** This repository currently holds the [Master Project Blueprint](docs/Bondeth_AI_Master_Blueprint.pdf), which covers the proposal, requirements, architecture, and business model. Implementation has not started yet.
+## Features
 
-## Planned Features
-
-| Feature | Engine | What it will do |
+| Feature | Engine | What it does |
 | --- | --- | --- |
-| **Speech-to-Text (STT)** | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (`large-v3-turbo`) | Transcribe microphone input or uploaded audio (`.wav`, `.mp3`, `.m4a`) in Khmer and English, with automatic language detection and Khmer word segmentation through [khmercut](https://github.com/seanghay/khmercut) |
-| **Text-to-Speech (TTS)** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Generate natural speech from text, with Khmer normalization that reads out numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), and dates |
-| **Zero-shot voice cloning** | [F5-TTS](https://github.com/SWivid/F5-TTS) (flow matching) | Clone a voice from a 10–30 second reference clip, with no training, and speak custom Khmer or English text in that voice |
+| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. About **18% CER** on FLEURS Khmer |
+| **Text-to-Speech** | [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (VITS) | Reads Khmer, English, or both in one sentence; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out |
+| **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Clones a voice from a 3-30 s sample (consent required) and speaks any Khmer or English text. Runs as a queued job that survives restarts |
+| **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, transcription history, saved voices |
 
-### Goals
+The web app is a studio-style Next.js UI with light/dark themes, animations and hand-drawn doodles.
 
-- A self-hosted stack with no licensing fees for self-hosters.
-- Response times under 2 seconds for transcription and speech generation.
-- Voice cloning from under 30 seconds of reference audio.
+## Quick start (Docker)
 
-## Planned Architecture
-
-```text
-┌────────────────────────────────────────────────────────────────────┐
-│                         NEXT.JS FRONTEND                           │
-│  • Audio recorder (MediaRecorder)   • Waveform visualizer          │
-│  • Khmer-aware text editor          • Custom web audio player      │
-└──────────────────────────────┬─────────────────────────────────────┘
-                               │ REST / multipart requests
-                               ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                          FASTAPI BACKEND                           │
-│  • Routes: /stt, /tts, /clone      • Khmer text normalizer         │
-│  • JWT auth and rate limiting      • Redis caching                 │
-└─────────┬──────────────────────────┬───────────────────────┬───────┘
-          ▼                          ▼                       ▼
- ┌──────────────────┐      ┌──────────────────┐     ┌──────────────────┐
- │   STT WORKER     │      │   TTS WORKER     │     │  CLONE WORKER    │
- │  faster-whisper  │      │   Meta MMS-TTS   │     │     F5-TTS       │
- │  (CTranslate2)   │      │     (VITS)       │     │  (flow matching) │
- └──────────────────┘      └──────────────────┘     └──────────────────┘
+```bash
+cp .env.example .env
+# set BONDETH_JWT_SECRET in .env:  python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+docker compose --profile app up -d --build
 ```
 
-### Planned API
+Open **http://localhost:3000** (API docs at http://localhost:8000/docs). The first start downloads about 6 GB of models into `backend/models/` and loads them, which takes a while; later starts reuse them.
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/api/v1/stt` | Upload audio → detected language and transcribed text |
-| `POST` | `/api/v1/tts` | Text and language (`km` or `en`) → WAV audio |
-| `POST` | `/api/v1/clone` | Reference audio, target text, and language → cloned speech |
+On a Linux server with an NVIDIA GPU (and the NVIDIA Container Toolkit), add the GPU override:
 
-The planned PostgreSQL schema stores `users`, `transcriptions`, and `cloned_voices`. See the blueprint for details.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up -d --build
+```
 
-## Planned Tech Stack
-
-| Area | Technology |
+| Service | What it is |
 | --- | --- |
-| Backend | Python 3.11, FastAPI, Pydantic, Uvicorn |
-| Speech-to-Text | faster-whisper (CTranslate2) |
-| Text-to-Speech | Meta MMS-TTS (`mms-tts-khm`, `mms-tts-eng`) via Transformers and PyTorch |
-| Voice cloning | F5-TTS |
-| Khmer NLP | khmercut (word segmentation) |
-| Frontend | Next.js, React |
-| Data | PostgreSQL 16, Redis |
-| Deployment | Docker Compose, with a GPU option (NVIDIA T4) for real-time cloning |
+| `postgres`, `redis` | Database and job queue (always started) |
+| `migrate` | Runs database migrations once, then exits |
+| `backend` | FastAPI + models (CPU image by default, CUDA with the GPU override) |
+| `frontend` | Next.js standalone server |
 
-## Model Licenses
+## Local development
 
-The engines' **code** is open source, but some **pretrained weights** are licensed for non-commercial use only:
+```bash
+docker compose up -d                                   # Postgres + Redis only
+
+cd backend
+uv venv --python 3.11 .venv && uv pip install -r requirements-dev.txt
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload                # http://localhost:8000
+.venv/bin/python -m pytest                             # uses a separate bondeth_test database
+
+cd ../frontend
+npm install && npm run dev                             # http://localhost:3000
+```
+
+Real-model tests are opt-in: `BONDETH_RUN_MODEL_TESTS=1 pytest`. Khmer STT accuracy and voice-cloning quality can be re-measured with `python -m scripts.eval_khmer_stt` and `python -m scripts.bench_voice_clone`.
+
+## Architecture
+
+```text
+┌──────────────────────────────── Next.js studio (frontend/) ───────────────────────────────┐
+│  Recorder + live levels · waveform player · STT / TTS / Clone workspaces · History · Voices│
+└──────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                           │ REST + JWT
+┌──────────────────────────────── FastAPI (backend/) ───────────────────────────────────────┐
+│  /auth  /stt  /tts  /clone  /voices  /transcriptions  /text/normalize  /health           │
+│  Khmer & English normalizers · script splitting for mixed text · login throttling        │
+├──────────────────┬──────────────────┬──────────────────────────┬─────────────────────────┤
+│ STT              │ TTS              │ Clone worker (thread)     │ PostgreSQL · Redis      │
+│ Khmer Whisper    │ MMS-TTS km + en  │ OmniVoice, jobs in Redis  │ users, transcriptions,  │
+│ + faster-whisper │                  │ (re-queued after crashes) │ cloned_voices · tokens  │
+└──────────────────┴──────────────────┴──────────────────────────┴─────────────────────────┘
+```
+
+## Model licenses
+
+The engines' **code** is open source, but some **pretrained weights** are non-commercial:
 
 | Component | License |
 | --- | --- |
-| faster-whisper, Whisper `large-v3-turbo` weights | MIT |
-| khmercut | Apache 2.0 |
+| faster-whisper, Whisper `large-v3-turbo`, whisper-turbo-khmer-v9 | MIT |
 | Meta MMS-TTS weights (`facebook/mms-tts-*`) | CC BY-NC 4.0 (non-commercial) |
-| F5-TTS pretrained weights | CC BY-NC 4.0 (non-commercial) |
+| OmniVoice weights | CC BY-NC (non-commercial) |
 
-Any paid or commercial offering will need commercially licensed or self-trained TTS and voice-cloning weights.
+Before any paid offering, TTS and voice cloning need commercially licensed weights. [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) (Apache 2.0, supports Khmer) is a candidate on GPU servers; the clone engine is behind a swappable interface.
 
 ## Documentation
 
-- [Master Project Blueprint (PDF)](docs/Bondeth_AI_Master_Blueprint.pdf): proposal, requirements, architecture, reference backend code, database schema, business model, and infrastructure costs.
+- [Master Project Blueprint (PDF)](docs/Bondeth_AI_Master_Blueprint.pdf): the original proposal, requirements, architecture, business model and infrastructure costs.
+- [frontend/README.md](frontend/README.md): pages and design system.
 
 ## Project Structure
 
 ```text
 Bondeth-AI/
-└── docs/
-    └── Bondeth_AI_Master_Blueprint.pdf
+├── backend/              FastAPI app, models, Alembic migrations, tests, eval scripts
+├── frontend/             Next.js studio
+├── docker/               Postgres init (creates the test database)
+├── docker-compose.yml    Postgres + Redis; `--profile app` adds migrate, backend, frontend
+├── docker-compose.gpu.yml
+└── docs/                 Blueprint
 ```
 
 ## Author
