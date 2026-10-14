@@ -3,14 +3,16 @@
 The schema follows the blueprint (users, transcriptions, cloned_voices) with
 two additions to cloned_voices: the reference transcript, so a saved voice is
 never re-transcribed, and when the owner confirmed consent to clone it.
+Developer API keys (api_keys) and their daily metered usage (api_key_usage)
+come from the blueprint's business model.
 """
 
 import uuid
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import Request
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -63,6 +65,31 @@ class ClonedVoice(Base):
     reference_duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
     consent_confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = _created_at()
+
+
+class ApiKey(Base):
+    """A developer API key. Only a SHA-256 of the key is stored; the key itself is shown once."""
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[uuid.UUID] = _owner()
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(16), nullable=False)  # first characters, to recognise it
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ApiKeyUsage(Base):
+    """Metered work per key, quota and day (in the quota timezone): the basis for API billing."""
+    __tablename__ = "api_key_usage"
+
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id", ondelete="CASCADE"), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    quota: Mapped[str] = mapped_column(String(20), primary_key=True)  # stt_seconds | tts_chars | clone_jobs
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    requests: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 def create_engine(database_url: str) -> AsyncEngine:

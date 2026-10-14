@@ -52,3 +52,7 @@ export type Usage = {
   // limit and remaining are null when the server has limits switched off; clone_jobs only when signed in.
   quotas: Partial<Record<QuotaName, { used: number; limit: number | null; remaining: number | null }>>;
 };
+
+export type ApiKey = { id: string; name: string; prefix: string; created_at: string; last_used_at: string | null };
+export type ApiKeyCreated = ApiKey & { key: string };
+export type ApiKeyUsageDay = { day: string; requests: number; stt_seconds: number; tts_chars: number; clone_jobs: number };

@@ -11,11 +11,16 @@ parallel requests can't all slip under the limit. Speech-to-text reserves the
 upload's duration when the file header has one, then settles to the duration
 actually transcribed.
 
+Requests made with a developer API key get their own rate-limit bucket per key,
+share the owner's daily quotas (so extra keys don't mean extra allowance) and
+are metered per key and day in PostgreSQL (api_key_usage) for billing.
+
 Usage is counted even with BONDETH_LIMITS_ENABLED=false; only enforcement stops.
 """
 
 import math
 import time
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -25,10 +30,12 @@ from typing import Literal
 from fastapi import Depends, Request
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth import get_current_user, get_optional_user, get_redis
 from app.config import Settings, get_settings
-from app.db import User
+from app.db import ApiKeyUsage, User
 
 Quota = Literal["stt_seconds", "tts_chars", "clone_jobs"]
 QUOTAS: tuple[Quota, ...] = ("stt_seconds", "tts_chars", "clone_jobs")
@@ -39,13 +46,19 @@ _LABELS = {"stt_seconds": "speech-to-text", "tts_chars": "text-to-speech", "clon
 
 @dataclass(frozen=True)
 class Caller:
-    key: str  # "user:<id>" or "ip:<address>"
+    key: str  # quota owner: "user:<id>" or "ip:<address>"
     signed_in: bool
+    api_key_id: uuid.UUID | None = None  # set when the request used a developer API key
+
+    @property
+    def rate_key(self) -> str:
+        return f"key:{self.api_key_id}" if self.api_key_id else self.key
 
     @classmethod
     def of(cls, request: Request, user: User | None) -> "Caller":
         if user is not None:
-            return cls(f"user:{user.id}", True)
+            api_key = getattr(request.state, "api_key", None)
+            return cls(f"user:{user.id}", True, api_key.id if api_key else None)
         # Behind a reverse proxy, set uvicorn's FORWARDED_ALLOW_IPS so this is the real client.
         return cls(f"ip:{request.client.host if request.client else 'unknown'}", False)
 
@@ -89,10 +102,12 @@ def describe(quota: Quota, amount: int) -> str:
 
 
 class Limits:
-    def __init__(self, redis: Redis, settings: Settings, clock: Callable[[], float] = time.time):
+    def __init__(self, redis: Redis, settings: Settings, clock: Callable[[], float] = time.time,
+                 sessionmaker: async_sessionmaker[AsyncSession] | None = None):
         self._redis = redis
         self._s = settings
         self._clock = clock
+        self._sessionmaker = sessionmaker  # for per-API-key metering
 
     @property
     def enforced(self) -> bool:
@@ -106,11 +121,13 @@ class Limits:
             return
         if cheap:
             limit = self._s.rate_limit_cheap
+        elif caller.api_key_id:
+            limit = self._s.rate_limit_api_key
         else:
             limit = self._s.rate_limit_user if caller.signed_in else self._s.rate_limit_anon
         window = self._s.rate_limit_window_s
         now = self._clock()
-        key = f"rate:{group}:{caller.key}:{int(now // window)}"
+        key = f"rate:{group}:{caller.rate_key}:{int(now // window)}"
         async with self._redis.pipeline(transaction=True) as pipe:
             pipe.incr(key)
             pipe.expire(key, window, nx=True)
@@ -181,10 +198,26 @@ class Limits:
             raise
         if charge.amount != reserved:
             await self._add(quota, caller, charge.amount - reserved)
+        if caller.api_key_id:
+            await self.meter(caller.api_key_id, quota, charge.amount)
+
+    async def meter(self, api_key_id: uuid.UUID, quota: Quota, amount: int) -> None:
+        """Add one request of `amount` to the key's durable usage for today."""
+        if self._sessionmaker is None:
+            return
+        stmt = insert(ApiKeyUsage).values(api_key_id=api_key_id, day=self._today().date(), quota=quota,
+                                          amount=amount, requests=1)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[ApiKeyUsage.api_key_id, ApiKeyUsage.day, ApiKeyUsage.quota],
+            set_={"amount": ApiKeyUsage.amount + stmt.excluded.amount, "requests": ApiKeyUsage.requests + 1})
+        async with self._sessionmaker() as session:
+            await session.execute(stmt)
+            await session.commit()
 
 
-def get_limits(redis: Redis = Depends(get_redis), settings: Settings = Depends(get_settings)) -> Limits:
-    return Limits(redis, settings)
+def get_limits(request: Request, redis: Redis = Depends(get_redis),
+               settings: Settings = Depends(get_settings)) -> Limits:
+    return Limits(redis, settings, sessionmaker=request.app.state.sessionmaker)
 
 
 def rate_limit(group: str, *, signed_in: bool = False, cheap: bool = False):
