@@ -1,7 +1,22 @@
-# Local infrastructure for development. Step 7 adds the backend and frontend services.
+# Bondeth AI
+#
+#   docker compose up -d                       # Postgres + Redis only (local development, tests)
+#   docker compose --profile app up -d --build # the whole app: http://localhost:3000
+#
+# GPU servers: add -f docker-compose.gpu.yml (see that file).
+# Settings come from .env next to this file (copy .env.example).
+
+x-backend-env: &backend-env
+  BONDETH_ENV: ${BONDETH_ENV:-production}
+  BONDETH_JWT_SECRET: ${BONDETH_JWT_SECRET:-}  # required; the backend refuses to start without it
+  BONDETH_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bondeth}:${POSTGRES_PASSWORD:-bondeth}@postgres:5432/${POSTGRES_DB:-bondeth}
+  BONDETH_REDIS_URL: redis://redis:6379/0
+  BONDETH_CORS_ORIGINS: '["${PUBLIC_APP_URL:-http://localhost:3000}"]'
+
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bondeth}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bondeth}
@@ -19,6 +34,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     # Append-only file so queued clone jobs survive a Redis restart.
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -31,6 +47,55 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot: brings the database schema up to date, then exits.
+  migrate:
+    profiles: [app]
+    build: { context: ./backend }
+    image: bondeth-ai/backend:${BACKEND_TAG:-cpu}
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  backend:
+    profiles: [app]
+    build: { context: ./backend }
+    image: bondeth-ai/backend:${BACKEND_TAG:-cpu}
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      # Load models at startup so the first request isn't slow. Set to false to start faster.
+      BONDETH_STT_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
+      BONDETH_TTS_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
+      BONDETH_CLONE_PRELOAD: ${BONDETH_PRELOAD_MODELS:-true}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # Downloaded models (~6 GB). Defaults to backend/models so local downloads are reused.
+      - ${MODELS_PATH:-./backend/models}:/app/models
+      - backend-data:/app/data
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      # Preloading downloads/loads several GB the first time, so allow a long start.
+      start_period: 15m
+
+  frontend:
+    profiles: [app]
+    build:
+      context: ./frontend
+      args:
+        # Inlined into the browser bundle: the backend address as the browser sees it.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    image: bondeth-ai/frontend:latest
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend: { condition: service_started }
+
 volumes:
   postgres-data:
   redis-data:
+  backend-data:

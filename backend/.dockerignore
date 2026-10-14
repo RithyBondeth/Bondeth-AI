@@ -1,0 +1,11 @@
+.venv/
+models/
+data/
+tmp/
+tests/
+scripts/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+.env
+requirements-dev.txt

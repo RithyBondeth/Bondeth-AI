@@ -71,8 +71,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_real_secret_outside_dev(self):
-        if self.env not in ("development", "test") and self.jwt_secret == DEV_JWT_SECRET:
-            raise ValueError("Set BONDETH_JWT_SECRET to a long random value outside development.")
+        if self.env not in ("development", "test") and (
+            self.jwt_secret == DEV_JWT_SECRET or len(self.jwt_secret) < 32
+        ):
+            raise ValueError(
+                "Set BONDETH_JWT_SECRET to a random value of at least 32 characters outside development "
+                "(python3 -c \"import secrets; print(secrets.token_urlsafe(48))\").")
         return self
 
 
