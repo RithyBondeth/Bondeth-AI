@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { PadlockDoodle } from "@/components/doodles";
+import { UnlockDoodle } from "@/components/doodles";
 import { EmptyState, Panel, useToast } from "@/components/ui";
 import { ApiError, apiJson } from "@/lib/api";
 import { useHydrated, useUser } from "@/lib/hooks";
@@ -30,7 +30,7 @@ export function RequireAuth({ children, why }: { children: ReactNode; why: strin
   return (
     <Panel className="mx-auto max-w-xl">
       <EmptyState
-        doodle={<PadlockDoodle className="h-28 w-28 text-ink" />}
+        doodle={<UnlockDoodle className="h-32 w-44 text-ink" />}
         title="Sign in to continue"
         action={
           <div className="flex gap-2">

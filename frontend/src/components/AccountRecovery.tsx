@@ -60,7 +60,7 @@ export function VerifyEmail() {
   }, []);
 
   return (
-    <AuthShell km="បញ្ជាក់អ៊ីមែល" title="Confirm your email" subtitle="One click and your full daily allowance is unlocked.">
+    <AuthShell km="បញ្ជាក់អ៊ីមែល" title="Confirm your email" subtitle="One click and your full daily allowance is unlocked." bubble="អរគុណ" art="reader">
       {state.status === "working" ? (
         <p className="text-sm text-ink-soft">Checking your link…</p>
       ) : state.status === "done" ? (
@@ -102,7 +102,7 @@ export function ForgotPassword() {
   };
 
   return (
-    <AuthShell km="ភ្លេចពាក្យសម្ងាត់" title="Forgot your password?" subtitle="We'll email you a link to choose a new one." bubble="កុំបារម្ភ">
+    <AuthShell km="ភ្លេចពាក្យសម្ងាត់" title="Forgot your password?" subtitle="We'll email you a link to choose a new one." bubble="កុំបារម្ភ" art="key">
       {sentTo ? (
         <Outcome ok>
           <p className="flex items-center gap-2 font-medium"><MailCheck className="size-4" /> Check your inbox</p>
@@ -156,7 +156,7 @@ export function ResetPassword() {
   };
 
   return (
-    <AuthShell km="ប្តូរពាក្យសម្ងាត់" title="Choose a new password" subtitle="You'll be signed out on every device.">
+    <AuthShell km="ប្តូរពាក្យសម្ងាត់" title="Choose a new password" subtitle="You'll be signed out on every device." bubble="ល្អណាស់" art="listener">
       {done ? (
         <Outcome ok>
           <p className="font-medium">Your password is changed.</p>

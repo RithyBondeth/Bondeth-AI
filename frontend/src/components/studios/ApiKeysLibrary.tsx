@@ -4,7 +4,7 @@ import { Check, Copy, KeyRound, Plus, Trash2, TriangleAlert } from "lucide-react
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { PadlockDoodle } from "@/components/doodles";
+import { UnlockDoodle } from "@/components/doodles";
 import { Intro, RequireAuth, errorText } from "@/components/studios/shared";
 import { Button, Dialog, EmptyState, Field, IconButton, Input, Panel, PanelHeader, useToast } from "@/components/ui";
 import { API_URL, api, apiJson } from "@/lib/api";
@@ -69,7 +69,7 @@ function Keys() {
           <div className="space-y-3">{[0, 1].map((k) => <div key={k} className="h-28 animate-pulse rounded-2xl bg-surface" />)}</div>
         ) : keys.length === 0 ? (
           <Panel>
-            <EmptyState doodle={<PadlockDoodle className="h-24 w-24 text-ink" />} title="No API keys yet"
+            <EmptyState doodle={<UnlockDoodle className="h-28 w-40 text-ink" />} title="No API keys yet"
               action={<Button onClick={() => setCreating(true)} icon={<Plus className="size-4" />}>Create your first key</Button>}>
               Create a key for each app or bot, so you can see what each one uses and revoke it on its own.
             </EmptyState>

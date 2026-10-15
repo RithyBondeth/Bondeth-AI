@@ -102,6 +102,8 @@ services:
       args:
         # Inlined into the browser bundle: the backend address as the browser sees it.
         NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+        # This site's public address, for share-image (Open Graph) links.
+        NEXT_PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
     image: bondeth-ai/frontend:latest
     restart: unless-stopped
     ports:

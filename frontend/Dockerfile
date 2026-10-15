@@ -3,6 +3,7 @@
 # Bondeth AI frontend: Next.js standalone server.
 # NEXT_PUBLIC_API_URL is inlined into the browser bundle at build time, so it must be
 # the backend address as the *browser* sees it (e.g. http://localhost:8000).
+# NEXT_PUBLIC_APP_URL is this site's public address, used for share-image links.
 
 FROM node:24-slim AS deps
 WORKDIR /app
@@ -12,7 +13,9 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 FROM node:24-slim AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

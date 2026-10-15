@@ -75,7 +75,7 @@ function Library() {
         </div>
       ) : voices.length === 0 ? (
         <Panel>
-          <EmptyState doodle={<TwinVoicesDoodle className="h-24 w-48 text-ink" />} title="No voices yet"
+          <EmptyState doodle={<TwinVoicesDoodle className="h-28 w-44 text-ink" />} title="No voices yet"
             action={<Button onClick={() => setAdding(true)} icon={<Plus className="size-4" />}>Add your first voice</Button>}>
             Record yourself for 10-20 seconds, or upload a clean sample of someone who agreed to be cloned.
           </EmptyState>

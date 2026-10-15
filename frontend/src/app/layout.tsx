@@ -10,9 +10,15 @@ import "./globals.css";
 const ubuntu = Ubuntu({ weight: ["300", "400", "500", "700"], subsets: ["latin"], variable: "--nf-ubuntu" });
 const khmer = Kantumruy_Pro({ subsets: ["khmer"], variable: "--nf-khmer" });
 
+const description = "Open-source Khmer & English speech-to-text, text-to-speech and voice cloning.";
+
 export const metadata: Metadata = {
+  // Share images (app/opengraph-image.png etc.) need an absolute URL that crawlers can reach.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: { default: "Bondeth AI · បណ្ឌិត AI", template: "%s · Bondeth AI" },
-  description: "Open-source Khmer & English speech-to-text, text-to-speech and voice cloning.",
+  description,
+  openGraph: { type: "website", siteName: "Bondeth AI", title: "Bondeth AI · Speak Khmer. Be heard.", description },
+  twitter: { card: "summary_large_image", title: "Bondeth AI · Speak Khmer. Be heard.", description },
 };
 
 export const viewport: Viewport = {

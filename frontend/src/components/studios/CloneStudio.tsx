@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, Plus, Upload } from "lucide-react";
+import { Check, Plus, ShieldCheck, Upload } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
-import { NotebookDoodle, TwinVoicesDoodle } from "@/components/doodles";
+import { NotebookDoodle } from "@/components/doodles";
 import { RecentsPanel, useRecents } from "@/components/shell/Recents";
 import { Editor } from "@/components/studios/TtsStudio";
 import { ConsentCheckbox, VoiceAvatar } from "@/components/studios/VoicesLibrary";
@@ -164,7 +164,9 @@ function Studio() {
         </Panel>
 
         <Panel className="flex items-center gap-3 p-4">
-          <TwinVoicesDoodle className="h-10 w-20 shrink-0 text-ink" />
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-lilac-soft text-lilac">
+            <ShieldCheck className="size-5" />
+          </span>
           <p className="text-xs text-ink-soft">Only clone voices you own or have explicit permission to use.</p>
         </Panel>
       </aside>
