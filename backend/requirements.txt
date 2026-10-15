@@ -3,12 +3,15 @@ uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
 python-multipart==0.0.20
 faster-whisper==1.2.1
+# Khmer decoding accounts for this runtime's max_length // 2 behavior; re-evaluate on upgrades.
+ctranslate2==4.8.3
 torch==2.14.1
 torchaudio==2.11.0
 transformers==5.19.0
 scipy==1.17.1
 num2words==0.5.14
 omnivoice==0.2.1
+filelock==4.1.1
 soundfile==0.14.0
 sqlalchemy[asyncio]==2.1.4
 asyncpg==0.32.0
@@ -17,3 +20,4 @@ redis==8.1.0
 pyjwt==2.15.1
 pwdlib[argon2]==0.3.1
 email-validator==2.3.0
+httpx==0.28.1

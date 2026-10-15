@@ -35,6 +35,7 @@ class CloneJobOut(BaseModel):
     duration: float | None = None
     status_url: str
     audio_url: str | None = None
+    cache_hit: bool = False
 
 
 def _job_out(job: CloneJob, queue: CloneJobQueue, request: Request) -> CloneJobOut:
@@ -49,6 +50,7 @@ def _job_out(job: CloneJob, queue: CloneJobQueue, request: Request) -> CloneJobO
         duration=job.duration,
         status_url=str(request.url_for("clone_job_status", job_id=job.id)),
         audio_url=str(request.url_for("clone_job_audio", job_id=job.id)) if job.status == "done" else None,
+        cache_hit=job.cache_hit,
     )
 
 
@@ -69,6 +71,7 @@ async def create_clone_job(
     reference_text: str | None = Form(None, description="Transcript of reference_audio; transcribed automatically if omitted"),
     lang: Literal["auto", "km", "en"] = Form("auto"),
     speed: float = Form(1.0, ge=0.5, le=2.0),
+    reuse_cached: bool = Form(True, description="Reuse identical audio privately; false generates a fresh take at the same quality"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -89,7 +92,8 @@ async def create_clone_job(
     # One job of today's allowance: refunded if it can't be queued, or by the worker if it fails.
     async with limits.spend("clone_jobs", caller, 1) as charge:
         job_id = uuid.uuid4().hex
-        common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed,
+        common = dict(id=job_id, user_id=str(user.id), text=text.strip(), lang=lang, speed=speed, reuse_cached=reuse_cached,
+                      priority=caller.plan == "pro",
                       charge=limits.job_charge("clone_jobs", caller, charge).dumps())
 
         if voice_id is not None:

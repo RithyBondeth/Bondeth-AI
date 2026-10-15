@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Panel, PanelHeader, cx, useToast } from "@/components/ui";
 import { API_URL, api, notifyUsageChanged, sessionStore } from "@/lib/api";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
+import { useHydrated } from "@/lib/hooks";
 import type { Lang, SttResult } from "@/lib/types";
 
 /*
@@ -56,6 +57,7 @@ type Resources = { ws?: WebSocket; stream?: MediaStream; ctx?: AudioContext; tim
 
 export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: SttResult | null) => void }) {
   const toast = useToast();
+  const hydrated = useHydrated();
   const [status, setStatus] = useState<Status>("idle");
   const [finals, setFinals] = useState<Final[]>([]);
   const [partial, setPartial] = useState("");
@@ -89,24 +91,38 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
     setSeconds(0);
     setLanguage(lang === "auto" ? null : lang);
     setStatus("connecting");
+    const resources: Resources = {};
+    res.current = resources;
     try {
       // Refresh the access token first if it has expired (a WebSocket can't do that mid-way).
       if (sessionStore.get()) await api("/api/v1/auth/me", { auth: "optional" }).catch(() => {});
+      if (res.current !== resources) return;
       const token = sessionStore.get()?.access;
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
+      if (res.current !== resources) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      // Register each resource immediately so setup failures/unmount can release it.
+      resources.stream = stream;
       const ctx = new AudioContext();
+      resources.ctx = ctx;
       const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
-      await ctx.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
+      try {
+        await ctx.audioWorklet.addModule(url);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      if (res.current !== resources) return;
       const node = new AudioWorkletNode(ctx, "pcm16-downsampler");
       ctx.createMediaStreamSource(stream).connect(node);
 
       const ws = new WebSocket(`${API_URL.replace(/^http/, "ws")}/api/v1/stt/live`);
       ws.binaryType = "arraybuffer";
-      res.current = { ws, stream, ctx };
+      resources.ws = ws;
 
       let ready = false;
       node.port.onmessage = (e: MessageEvent<{ pcm: ArrayBuffer; level: number }>) => {
@@ -151,6 +167,7 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
       };
       ws.onerror = () => toast("Lost the connection to the dictation server.", "error");
     } catch (err) {
+      if (res.current !== resources) return;
       release();
       setStatus("idle");
       const denied = err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "SecurityError");
@@ -188,7 +205,7 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
             )}
           </AnimatePresence>
           <motion.button type="button" whileTap={{ scale: 0.94 }} onClick={live ? stop : start}
-            disabled={status === "connecting" || status === "finishing"}
+            disabled={!hydrated || status === "connecting" || status === "finishing"}
             aria-label={live ? "Stop dictation" : "Start dictation"}
             className={cx("relative grid size-20 place-items-center rounded-full text-accent-ink shadow-panel transition-colors disabled:opacity-60",
               live ? "bg-rose" : "bg-accent")}>

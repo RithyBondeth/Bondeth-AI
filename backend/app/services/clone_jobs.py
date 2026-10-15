@@ -28,6 +28,7 @@ from typing import Literal
 
 from redis import Redis
 
+from app.services import queue_storage
 from app.services.job_billing import JobBilling, JobCharge
 
 logger = logging.getLogger(__name__)
@@ -63,12 +64,15 @@ class CloneJob:
     ref_text_source: RefTextSource = "provided"
     voice_id: str | None = None
     charge: str | None = None  # JobCharge JSON: what was reserved, refunded if the job fails
+    priority: bool = False
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     status: JobStatus = "queued"
     error: str | None = None
     duration: float | None = None
     created_at: float = field(default_factory=time.time)
     finished_at: float | None = None
+    reuse_cached: bool = True  # False requests a fresh take, never lowers generation quality
+    cache_hit: bool = False
 
     @property
     def output_path(self) -> Path:
@@ -91,6 +95,9 @@ class CloneJob:
         kwargs["work_dir"] = Path(kwargs["work_dir"])
         kwargs["reference_path"] = Path(kwargs["reference_path"])
         kwargs["delete_reference"] = kwargs.get("delete_reference") == "True"
+        kwargs["priority"] = kwargs.get("priority") == "True"
+        kwargs["reuse_cached"] = kwargs.get("reuse_cached", "True") == "True"
+        kwargs["cache_hit"] = kwargs.get("cache_hit") == "True"
         return cls(**kwargs)
 
 
@@ -118,13 +125,9 @@ class CloneJobQueue:
         return path
 
     def submit(self, job: CloneJob) -> CloneJob:
-        if self.pending_count() >= self._max_pending:
+        if not queue_storage.submit(self._redis, QUEUE_KEY, PROCESSING_KEY, job_key(job.id),
+                                    job.to_redis(), self._max_pending, PENDING_TTL_S, job.priority):
             raise QueueFull("The voice-cloning queue is full. Please try again shortly.")
-        with self._redis.pipeline(transaction=True) as pipe:
-            pipe.hset(job_key(job.id), mapping=job.to_redis())
-            pipe.expire(job_key(job.id), PENDING_TTL_S)
-            pipe.lpush(QUEUE_KEY, job.id)
-            pipe.execute()
         return job
 
     def get(self, job_id: str) -> CloneJob | None:
@@ -132,25 +135,30 @@ class CloneJobQueue:
         return CloneJob.from_redis(data) if data else None
 
     def pending_count(self) -> int:
-        return self._redis.llen(QUEUE_KEY) + self._redis.llen(PROCESSING_KEY)
+        return queue_storage.pending(self._redis, QUEUE_KEY, PROCESSING_KEY)
 
     def position(self, job: CloneJob) -> int | None:
         """1-based place in line for a queued job; None once it has started."""
-        if job.status != "queued":
-            return None
-        index = self._redis.lpos(QUEUE_KEY, job.id)
-        if index is None:
-            return None
-        waiting_behind_it = index  # newer jobs sit to its left
-        ahead = self._redis.llen(QUEUE_KEY) - waiting_behind_it - 1
-        return ahead + self._redis.llen(PROCESSING_KEY) + 1
+        return queue_storage.position(self._redis, QUEUE_KEY, PROCESSING_KEY, job)
 
     # --- Worker side ---------------------------------------------------------------
 
     def start_worker(self) -> None:
-        self._recover()
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError("Worker is already running")
+        lock = queue_storage.WorkerLock(self._jobs_root)
+        try:
+            self._recover()
+        except BaseException:
+            lock.release()
+            raise
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="clone-worker", daemon=True)
+        def run():
+            try:
+                self._loop()
+            finally:
+                lock.release()
+        self._thread = threading.Thread(target=run, name="clone-worker", daemon=True)
         self._thread.start()
 
     def stop_worker(self, timeout: float = 2.0) -> None:
@@ -163,19 +171,30 @@ class CloneJobQueue:
         """Put jobs interrupted by a crash or restart back at the front of the queue."""
         while (job_id := self._redis.lmove(PROCESSING_KEY, QUEUE_KEY, "LEFT", "RIGHT")) is not None:
             if self._redis.exists(job_key(job_id)):
+                if self._redis.hget(job_key(job_id), "status") in ("done", "failed"):
+                    self._redis.lrem(QUEUE_KEY, 1, job_id)
+                    continue
+                if self._redis.hget(job_key(job_id), "priority") == "True":
+                    self._redis.lrem(QUEUE_KEY, 1, job_id)
+                    self._redis.rpush(QUEUE_KEY + ":priority", job_id)
                 self._redis.hset(job_key(job_id), "status", "queued")
                 logger.info("Re-queued interrupted clone job %s", job_id)
 
     def _loop(self) -> None:
         last_sweep = 0.0
+        priority_run = 0
         while not self._stop.is_set():
             try:
                 if time.time() - last_sweep > SWEEP_INTERVAL_S:
                     self.sweep()
                     last_sweep = time.time()
-                job_id = self._redis.blmove(QUEUE_KEY, PROCESSING_KEY, 1, "RIGHT", "LEFT")
-                if job_id is None:
+                selected = self._redis.eval(queue_storage.POP, 3, QUEUE_KEY + ":priority", QUEUE_KEY,
+                                            PROCESSING_KEY, "normal" if priority_run >= 3 else "priority")
+                if selected is None:
+                    self._stop.wait(0.2)
                     continue
+                job_id, source = selected
+                priority_run = priority_run + 1 if source.endswith(":priority") else 0
                 self._process(job_id)
                 self._redis.lrem(PROCESSING_KEY, 1, job_id)
             except Exception:
@@ -196,14 +215,13 @@ class CloneJobQueue:
             job.status, job.error = "failed", str(exc) or exc.__class__.__name__
             if self._billing:  # a failed job doesn't use up the allowance
                 self._billing.settle(JobCharge.loads(job.charge), 0)
-        finally:
-            job.finished_at = time.time()
-            if job.delete_reference:
-                job.reference_path.unlink(missing_ok=True)
-            with self._redis.pipeline(transaction=True) as pipe:
-                pipe.hset(job_key(job.id), mapping=job.to_redis())
-                pipe.expire(job_key(job.id), self._ttl_s)
-                pipe.execute()
+        job.finished_at = time.time()
+        with self._redis.pipeline(transaction=True) as pipe:
+            pipe.hset(job_key(job.id), mapping=job.to_redis())
+            pipe.expire(job_key(job.id), self._ttl_s)
+            pipe.execute()
+        if job.delete_reference:
+            job.reference_path.unlink(missing_ok=True)
 
     def sweep(self) -> None:
         """Delete job folders whose Redis record has expired."""

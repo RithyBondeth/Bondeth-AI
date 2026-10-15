@@ -26,6 +26,7 @@ import numpy as np
 import soundfile as sf
 
 from app.config import Settings
+from app.services.errors import EngineUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,8 @@ HOUSE_VOICE_SCRIPT = ("Hello, and welcome to Bondeth AI. I read Khmer and Englis
 
 _model = None
 _model_lock = threading.Lock()
+_generation_lock = threading.Lock()
+_house_voice_lock = threading.Lock()
 
 
 def load_model(settings: Settings):
@@ -44,7 +47,13 @@ def load_model(settings: Settings):
         with _model_lock:
             if _model is None:
                 from huggingface_hub import snapshot_download
-                from voxcpm import VoxCPM
+                try:
+                    from voxcpm import VoxCPM
+                except ModuleNotFoundError as exc:
+                    raise EngineUnavailable(
+                        f"VoxCPM2 dependency '{exc.name}' is not installed. Install backend/requirements-voxcpm.txt "
+                        "and restart the backend, or select the installed MMS/OmniVoice engines for local testing."
+                    ) from exc
 
                 s = settings
                 path = snapshot_download(s.voxcpm_model, revision=s.voxcpm_model_revision,
@@ -80,8 +89,9 @@ class VoxCpm:
     def __init__(self, settings: Settings, model=None):
         self._s = settings
         self._model = model
-        self._lock = threading.Lock()
-        self._design_lock = threading.Lock()
+        # TTS and cloning wrap the SAME process-wide model in separate instances.
+        self._lock = _generation_lock
+        self._design_lock = _house_voice_lock
 
     @property
     def model(self):

@@ -20,6 +20,8 @@ import numpy as np
 
 SAMPLE_RATE = 16_000
 N_FRAMES = 3_000  # Whisper's fixed 30 s input window
+N_SAMPLES = 30 * SAMPLE_RATE
+MAX_DECODER_POSITIONS = 448
 MAX_CHUNK_S = 29.0
 # Khmer speech runs ~8 tokens/s (14 at most on FLEURS). Capping output at about twice that per
 # second of audio stops a decoding loop early instead of letting it run to Whisper's 448 tokens.
@@ -76,11 +78,18 @@ class KhmerWhisperEngine:
         for i, start in enumerate(starts):
             batch = spans[start:starts[i + 1] if i + 1 < len(starts) else len(spans)]
             feats = np.stack([self._mel(audio[s["start"]:s["end"]]) for s in batch])
+            duration = max(s["end"] - s["start"] for s in batch) / SAMPLE_RATE
+            # CTranslate2 4.8.3 internally caps generated tokens at max_length // 2.
+            # Compensate for that API behavior, NOT by exceeding Whisper's context:
+            # prompt + generated tokens must still fit in 448 decoder positions.
+            # The runtime is pinned in requirements.txt; recheck on upgrades.
+            token_budget = min(MAX_DECODER_POSITIONS - len(self._prompt),
+                               16 + int(MAX_TOKENS_PER_S * duration))
             results = self._model.generate(
                 self._ct2.StorageView.from_array(feats),
                 [self._prompt] * len(batch),
                 beam_size=beam_size or self._beam_size,
-                max_length=min(448, 16 + int(MAX_TOKENS_PER_S * max(s["end"] - s["start"] for s in batch) / SAMPLE_RATE)),
+                max_length=2 * token_budget,
             )
             for span, res in zip(batch, results):
                 ids = [t for t in res.sequences_ids[0] if t not in self._special_ids]
@@ -93,7 +102,9 @@ class KhmerWhisperEngine:
         return chunks
 
     def _mel(self, audio: np.ndarray) -> np.ndarray:
-        mel = self._features(audio)[:, :N_FRAMES]
-        if mel.shape[1] < N_FRAMES:
-            mel = np.pad(mel, ((0, 0), (0, N_FRAMES - mel.shape[1])))
-        return mel.astype(np.float32)
+        # Pad in waveform space, as in the model's training preprocessor. Zero in
+        # log-Mel space is not silence and also changes the end-of-speech features.
+        if len(audio) > N_SAMPLES:
+            raise ValueError("Khmer STT chunks must not exceed 30 seconds")
+        padded = np.pad(audio, (0, N_SAMPLES - len(audio)))
+        return self._features(padded, padding=0)[:, :N_FRAMES].astype(np.float32)

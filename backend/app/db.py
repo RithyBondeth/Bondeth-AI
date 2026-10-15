@@ -46,6 +46,12 @@ class User(Base):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Tokens issued before this (e.g. before a password reset) are rejected.
     sessions_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    stripe_checkout_id: Mapped[str | None] = mapped_column(String(255))
+    subscription_status: Mapped[str | None] = mapped_column(String(40))
+    subscription_price_id: Mapped[str | None] = mapped_column(String(255))
+    subscription_valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     @property
     def email_verified(self) -> bool:
@@ -61,6 +67,16 @@ class Transcription(Base):
     transcribed_text: Mapped[str] = mapped_column(Text, nullable=False)
     audio_duration_seconds: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = _created_at()
+    # A job saves history independently of whether a browser follows its result.
+    source_job_id: Mapped[str | None] = mapped_column(String(32), unique=True)
+
+
+class BillingEvent(Base):
+    __tablename__ = "billing_events"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    processed_at: Mapped[datetime] = _created_at()
 
 
 class ClonedVoice(Base):

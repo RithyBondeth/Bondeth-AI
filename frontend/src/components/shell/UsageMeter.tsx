@@ -27,7 +27,7 @@ export function UsageMeter({ className }: { className?: string }) {
   return (
     <div className={cx("rounded-2xl border border-line bg-surface p-4", className)}>
       <p className="flex items-baseline justify-between text-sm font-medium">
-        Today&apos;s allowance <span className="khmer text-[11px] font-normal text-ink-faint">ថ្ងៃនេះ</span>
+        {usage.plan === "pro" ? "Pro allowance" : "Today's allowance"} <span className="khmer text-[11px] font-normal text-ink-faint">ថ្ងៃនេះ</span>
       </p>
       <ul className="mt-3 space-y-2.5">
         {rows.map(({ name, label, format, unit, used, limit }) => {

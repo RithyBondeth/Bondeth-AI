@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, useInView, useReducedMotion, type SVGMotionProps, type Variants } from "motion/react";
-import { createContext, useContext, useId, useRef, type ReactNode } from "react";
+import { motion, useInView, type SVGMotionProps, type Variants } from "motion/react";
+import { createContext, useContext, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 /**
  * Building blocks for the hand-drawn illustrations.
@@ -83,13 +83,24 @@ const Looping = createContext(false);
 /** True inside a doodle, so a doodle placed in another follows its parent's looping. */
 const Nested = createContext(false);
 
+const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+function subscribeReducedMotion(onChange: () => void) {
+  const media = window.matchMedia(reducedMotionQuery);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+const getReducedMotion = () => window.matchMedia(reducedMotionQuery).matches;
+const getServerReducedMotion = () => false;
+
 export function useLoop() {
   return useContext(Looping);
 }
 
 export function Doodle({ viewBox, className, label, strokeWidth = 2.5, still = false, children, ...position }: DoodleProps) {
   const prefix = `doodle${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  const reduce = useReducedMotion() ?? false;
+  // The hydration snapshot must match the server's unknown OS preference.
+  // Subscribe after hydration, also responding when the user changes the setting.
+  const reduce = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, getServerReducedMotion);
   const ref = useRef<SVGSVGElement>(null);
   const inView = useInView(ref, { amount: 0.1 });
   // A doodle nested in another only loops when its parent does.

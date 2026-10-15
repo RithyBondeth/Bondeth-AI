@@ -16,11 +16,12 @@ const LEVEL_BARS = 28;
  * Record from the microphone or drop/choose a file. The large variant is the centrepiece
  * of the speech-to-text workspace; the compact one fits in forms and dialogs.
  */
-export function AudioInput({ value, onChange, maxSeconds = 300, compact = false }: {
+export function AudioInput({ value, onChange, maxSeconds = 300, compact = false, preserveVoice = false }: {
   value: AudioClip | null;
   onChange: (clip: AudioClip | null) => void;
   maxSeconds?: number;
   compact?: boolean;
+  preserveVoice?: boolean;
 }) {
   const toast = useToast();
   const [recording, setRecording] = useState(false);
@@ -43,53 +44,58 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false 
   const start = async () => {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: preserveVoice
+        ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        : { echoCancellation: true, noiseSuppression: true } });
     } catch {
       toast("Microphone access was blocked. Allow it in your browser, or upload a file instead.", "error");
       return;
     }
 
-    // Live level meter: bar heights are written straight to the DOM each frame (no re-renders).
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 64;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    const levels = new Uint8Array(analyser.frequencyBinCount);
+    let ctx: AudioContext | undefined;
     let frame = 0;
-    const draw = () => {
-      analyser.getByteFrequencyData(levels);
-      barsRef.current.forEach((bar, i) => {
-        // Mirror the spectrum so the meter is symmetric around the centre.
-        const bin = Math.abs(i - LEVEL_BARS / 2);
-        if (bar) bar.style.transform = `scaleY(${Math.max(0.1, levels[bin % levels.length] / 255)})`;
-      });
-      frame = requestAnimationFrame(draw);
-    };
-    draw();
-
-    const started = Date.now();
-    const timer = setInterval(() => setElapsed((Date.now() - started) / 1000), 200);
-
-    const recorder = new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    recorder.onstop = () => {
-      cleanupRef.current();
-      onChange({ blob: new Blob(chunks, { type: recorder.mimeType }), filename: `recording.${extensionForMime(recorder.mimeType)}` });
-    };
-
+    let timer: ReturnType<typeof setInterval> | undefined;
+    // Register cleanup before browser-dependent setup, including recorder creation.
     cleanupRef.current = () => {
       cancelAnimationFrame(frame);
       clearInterval(timer);
       stream.getTracks().forEach((t) => t.stop());
-      void ctx.close();
+      if (ctx && ctx.state !== "closed") void ctx.close();
       setRecording(false);
     };
-
-    recorderRef.current = recorder;
-    recorder.start();
-    setElapsed(0);
-    setRecording(true);
+    try {
+      // Live level meter: update transient levels without re-rendering the component.
+      ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const levels = new Uint8Array(analyser.frequencyBinCount);
+      const draw = () => {
+        analyser.getByteFrequencyData(levels);
+        barsRef.current.forEach((bar, i) => {
+          const bin = Math.abs(i - LEVEL_BARS / 2);
+          if (bar) bar.style.transform = `scaleY(${Math.max(0.1, levels[bin % levels.length] / 255)})`;
+        });
+        frame = requestAnimationFrame(draw);
+      };
+      draw();
+      const started = Date.now();
+      timer = setInterval(() => setElapsed((Date.now() - started) / 1000), 200);
+      const recorder = new MediaRecorder(stream, preserveVoice ? { audioBitsPerSecond: 192000 } : undefined);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.onstop = () => {
+        cleanupRef.current();
+        onChange({ blob: new Blob(chunks, { type: recorder.mimeType }), filename: `recording.${extensionForMime(recorder.mimeType)}` });
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setElapsed(0);
+      setRecording(true);
+    } catch {
+      cleanupRef.current();
+      toast("Couldn't start recording. Try another browser or upload an audio file.", "error");
+    }
   };
 
   const accept = (file: File | undefined) => {
@@ -103,8 +109,8 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false 
 
   if (value && !recording) {
     return (
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <AudioPlayer blob={value.blob} filename={value.filename} tone="teal" className="flex-1" />
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex min-w-0 items-center gap-2">
+        <AudioPlayer blob={value.blob} filename={value.filename} tone="teal" compact={compact} className="min-w-0 flex-1" />
         <IconButton label="Remove audio" onClick={() => onChange(null)} className="hover:bg-rose-soft hover:text-rose">
           <X className="size-4" />
         </IconButton>

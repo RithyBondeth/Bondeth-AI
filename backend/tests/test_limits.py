@@ -13,6 +13,7 @@ from tests.fakes import FakeStt, wav_bytes
 
 
 class FakeTts:
+    engine = "mms"
     def synthesize(self, text, lang="auto", speed=1.0):
         import numpy as np
         if text == "!!!":

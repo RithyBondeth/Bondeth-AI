@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_keys, auth, clone, health, live, stt, text, transcriptions, tts, usage, voices
+from app.api.v1 import api_keys, auth, billing as billing_api, clone, health, live, stt, text, transcriptions, tts, usage, voices
 from app.config import get_settings
 from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
@@ -39,25 +39,28 @@ async def lifespan(app: FastAPI):
         max_pending=settings.stt_job_max_queue, ttl_s=settings.stt_job_result_ttl_s, billing=billing,
     )
 
-    if settings.stt_preload:
-        await run_in_threadpool(get_stt_service().load)
-    if settings.tts_preload:
-        await run_in_threadpool(get_tts_service().preload)
-    if settings.clone_preload:
-        await run_in_threadpool(get_clone_service().load)
-    if settings.clone_worker_enabled:
-        app.state.clone_queue.start_worker()
-    if settings.stt_worker_enabled:
-        app.state.stt_queue.start_worker()
-
-    yield
-
-    app.state.clone_queue.stop_worker()
-    app.state.stt_queue.stop_worker()
-    sync_redis.close()
-    await app.state.redis.aclose()
-    await app.state.redis_bytes.aclose()
-    await engine.dispose()
+    try:
+        if settings.stt_preload:
+            await run_in_threadpool(get_stt_service().load)
+        if settings.tts_preload:
+            await run_in_threadpool(get_tts_service().preload)
+        if settings.clone_preload:
+            await run_in_threadpool(get_clone_service().load)
+        if settings.clone_worker_enabled:
+            app.state.clone_queue.start_worker()
+        if settings.stt_worker_enabled:
+            app.state.stt_queue.start_worker()
+        yield
+    finally:
+        # Stop fetching before waiting for inference, then close clients once workers exit.
+        app.state.clone_queue.stop_worker(timeout=0)
+        app.state.stt_queue.stop_worker(timeout=0)
+        await run_in_threadpool(app.state.clone_queue.stop_worker, timeout=None)
+        await run_in_threadpool(app.state.stt_queue.stop_worker, timeout=None)
+        sync_redis.close()
+        await app.state.redis.aclose()
+        await app.state.redis_bytes.aclose()
+        await engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -72,11 +75,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["Retry-After", "X-Cache"],
+        expose_headers=["Retry-After", "X-Cache", "X-TTS-Engine", "X-Audio-Duration"],
     )
     app.add_exception_handler(LimitExceeded, limit_exceeded_handler)
 
-    for router in (health, auth, api_keys, text, stt, live, transcriptions, tts, voices, clone, usage):
+    for router in (health, auth, billing_api, api_keys, text, stt, live, transcriptions, tts, voices, clone, usage):
         app.include_router(router.router, prefix="/api/v1")
     return app
 

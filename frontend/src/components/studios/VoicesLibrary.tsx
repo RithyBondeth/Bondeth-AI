@@ -37,7 +37,7 @@ export function ConsentCheckbox({ checked, onChange }: { checked: boolean; onCha
 export function VoicesLibrary() {
   return (
     <>
-      <Intro>Save a voice once (3-30 seconds, one speaker, little background noise), then clone it from Voice Clone.</Intro>
+      <Intro>Save a clear 5–10 second sample of one speaker (3–30 seconds accepted), then clone it from Voice Clone.</Intro>
       <RequireAuth why="Saved voices are private to your account.">
         <Library />
       </RequireAuth>
@@ -77,7 +77,7 @@ function Library() {
         <Panel>
           <EmptyState doodle={<TwinVoicesDoodle className="h-28 w-44 text-ink" />} title="No voices yet"
             action={<Button onClick={() => setAdding(true)} icon={<Plus className="size-4" />}>Add your first voice</Button>}>
-            Record yourself for 10-20 seconds, or upload a clean sample of someone who agreed to be cloned.
+            Record yourself for 5–10 seconds in a quiet room, or upload a clean sample of someone who agreed to be cloned.
           </EmptyState>
         </Panel>
       ) : (
@@ -196,9 +196,11 @@ function AddVoiceForm({ onSaved }: { onSaved: (v: Voice) => void }) {
       </Field>
       <div className="space-y-1.5">
         <p className="text-sm font-medium">Sample <span className="font-normal text-ink-soft">(3-30 s)</span></p>
-        <AudioInput value={clip} onChange={setClip} maxSeconds={30} compact />
+        <AudioInput value={clip} onChange={(next) => {
+          setClip(next); setTranscript(""); setConsent(false);
+        }} maxSeconds={30} compact preserveVoice />
       </div>
-      <Field label="What's said in the sample (optional)" hint="Leave empty to transcribe it automatically. You can fix it later.">
+      <Field label="What's said in the sample (optional)" hint="Exact words help the cloned voice match the speaker. Leave blank for automatic transcription, then check it before cloning.">
         {(id) => <Textarea id={id} rows={2} value={transcript} onChange={(e) => setTranscript(e.target.value)} className="khmer" />}
       </Field>
       <ConsentCheckbox checked={consent} onChange={setConsent} />

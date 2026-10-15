@@ -21,6 +21,18 @@ The API address comes from `NEXT_PUBLIC_API_URL` (default `http://localhost:8000
 | `/tts` | Text → speech, with a live preview of what each voice will read |
 | `/clone` | Saved voices + voice cloning jobs (sign-in required) |
 | `/login`, `/register` | Accounts |
+| `/account` | Verification, subscription/Stripe portal, password reset, deletion |
+| `/history`, `/voices`, `/api-keys` | Personal libraries and developer access |
+| `/forgot-password`, `/reset-password`, `/verify-email` | Email account recovery |
+| `/voice-consent` | Voice ownership and consent information |
+
+## Browser regression tests
+
+Run `npm run build`, `npx playwright install chromium`, then `npm run test:e2e`.
+The tests run the production frontend on port 3100 with controlled API fixtures,
+on desktop and mobile Chromium. Use `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`
+to run with an installed Chrome locally. See [operations](../docs/operations.md)
+for backend and deployment verification and [billing](../docs/billing.md) for Stripe.
 
 ## Design system
 

@@ -120,6 +120,16 @@ def test_tts_nothing_to_speak(client, fake_tts):
     assert client.post("/api/v1/tts", json={"text": "!!!"}).status_code == 422
 
 
+def test_missing_optional_engine_returns_actionable_error_and_refunds(client, fake_tts, monkeypatch):
+    from app.services.errors import EngineUnavailable
+    def unavailable(*args):
+        raise EngineUnavailable("Install backend/requirements-voxcpm.txt and restart the backend.")
+    monkeypatch.setattr(fake_tts, "synthesize", unavailable)
+    res = client.post("/api/v1/tts", json={"text": "Hello"})
+    assert res.status_code == 503 and "requirements-voxcpm.txt" in res.json()["detail"]
+    assert client.get("/api/v1/usage").json()["quotas"]["tts_chars"]["used"] == 0
+
+
 def test_tts_cache_reuses_audio_for_the_same_speech(client, fake_tts):
     first = client.post("/api/v1/tts", json={"text": "សួស្តី", "lang": "km"})
     again = client.post("/api/v1/tts", json={"text": "សួស្តី", "lang": "km"})

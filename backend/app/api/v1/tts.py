@@ -10,6 +10,7 @@ from app.deps import get_tts_cache, get_tts_service
 from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
 from app.services.tts_cache import TtsCache
+from app.services.errors import EngineUnavailable
 
 router = APIRouter(prefix="/tts", tags=["text-to-speech"])
 
@@ -56,8 +57,12 @@ async def text_to_speech(
                 wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
             except NothingToSpeak as exc:
                 raise HTTPException(422, str(exc)) from exc
+            except EngineUnavailable as exc:
+                raise HTTPException(503, str(exc)) from exc
             wav, duration = to_wav_bytes(wave, sr), len(wave) / sr
-            await cache.put(key, wav, duration)
+            # A quality engine may create its synthetic house reference on this
+            # request. Cache under its final identity so the next request can hit.
+            await cache.put(cache.key(chunks, req.speed), wav, duration)
 
     return Response(
         content=wav,
@@ -66,6 +71,7 @@ async def text_to_speech(
             "Content-Disposition": 'inline; filename="speech.wav"',
             "X-Audio-Duration": f"{duration:.2f}",
             "X-Cache": "HIT" if cached else "MISS",
+            "X-TTS-Engine": tts.engine,
         },
     )
 
