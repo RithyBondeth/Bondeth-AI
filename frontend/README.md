@@ -16,7 +16,7 @@ The API address comes from `NEXT_PUBLIC_API_URL` (default `http://localhost:8000
 
 | Route | What it does |
 | --- | --- |
-| `/` | Landing page with the animated doodle hero |
+| `/` | Landing page with doodle illustrations and an interactive studio preview |
 | `/stt` | Record or upload audio → transcript; history when signed in |
 | `/tts` | Text → speech, with a live preview of what each voice will read |
 | `/clone` | Saved voices + voice cloning jobs (sign-in required) |
@@ -36,7 +36,8 @@ for backend and deployment verification and [billing](../docs/billing.md) for St
 
 ## Design system
 
-- **Fonts:** Ubuntu for Latin text; Kantumruy Pro for Khmer (picked per character), with extra line height for stacked Khmer glyphs.
+- **Fonts:** Ubuntu for all Latin headings, body and interface text; Kantumruy Pro for Khmer (picked per character), with extra line height for stacked Khmer glyphs. Keep text upright and readable; the doodle treatment belongs to illustrations and surfaces.
 - **Theme:** colour tokens in `src/app/globals.css` under `[data-theme]`. An inline script in `<head>` applies the saved or system theme before the first paint (no flash).
-- **Doodles:** `src/components/doodles` holds hand-drawn SVGs drawn in code. They use the theme's ink and accent colours and sketch themselves in on scroll.
-- **Motion:** page transitions (`app/template.tsx`), springy buttons, tilt cards, animated audio bars. Everything respects the OS reduce-motion setting.
+- **Paper and ink:** warm cream and charcoal surfaces, orange highlighter accents, outlined buttons with solid offset shadows, and softly irregular paper panels. Shared styles include `paper-panel`, `ink-button`, and `marker-label`. Bright accent fills and readable accent text use separate tokens.
+- **Doodles:** responsive transparent artwork in `public/illustrations`, served with `next/image`, alongside native SVG waveforms, arrows, and speech bubbles in `src/components/doodles`. See [illustration prompts](../docs/illustrations.md). The logo and SVG favicon share an orange ink-stamp mark.
+- **Motion:** page transitions (`app/template.tsx`), gentle illustration entrances, button press feedback, animated audio bars. The studio preview pauses its tour on hover. Everything respects the OS reduce-motion setting.

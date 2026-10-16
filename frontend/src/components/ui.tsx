@@ -24,8 +24,8 @@ const spring = { type: "spring", stiffness: 500, damping: 32 } as const;
 
 const BUTTON_VARIANTS = {
   primary:
-    "bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_8px_20px_-8px_var(--accent)] hover:brightness-105",
-  secondary: "border border-line bg-surface text-ink shadow-panel hover:bg-surface-2",
+    "ink-button bg-accent text-accent-ink hover:brightness-105",
+  secondary: "ink-button bg-surface text-ink hover:bg-surface-2",
   ghost: "text-ink-soft hover:bg-surface-2 hover:text-ink",
   danger: "text-rose hover:bg-rose-soft",
 };
@@ -41,8 +41,6 @@ export function Button({ variant = "primary", size = "md", loading, icon, classN
   const inactive = disabled || loading;
   return (
     <motion.button
-      whileHover={inactive ? undefined : { y: -1 }}
-      whileTap={inactive ? undefined : { scale: 0.97 }}
       transition={spring}
       disabled={inactive}
       className={cx(
@@ -85,7 +83,7 @@ export function Panel({ className, children, ...rest }: HTMLMotionProps<"section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 220, damping: 26 }}
-      className={cx("rounded-2xl border border-line bg-surface shadow-panel", className)}
+      className={cx("paper-panel bg-surface", className)}
       {...rest}
     >
       {children}
@@ -108,7 +106,7 @@ export function PanelHeader({ title, km, children }: { title: string; km?: strin
 export function Setting({ label, value, children }: { label: string; value?: ReactNode; children: ReactNode }) {
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-ink-soft">
+      <div className="flex items-center justify-between text-xs font-medium tracking-wide text-ink-soft">
         <span>{label}</span>
         {value !== undefined && <span className="normal-case tabular-nums text-ink">{value}</span>}
       </div>
@@ -120,7 +118,7 @@ export function Setting({ label, value, children }: { label: string; value?: Rea
 // ---------- Form fields ----------
 
 const FIELD =
-  "w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-accent focus:bg-surface focus:outline-none";
+  "ink-field w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-accent focus:bg-surface focus:outline-none";
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: (id: string) => ReactNode }) {
   const id = useId();
@@ -208,7 +206,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
 export function EmptyState({ doodle, title, children, action }: { doodle: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <div className="dot-grid mb-4 rounded-3xl p-4">{doodle}</div>
+      <div className="mb-4 rounded-3xl p-4">{doodle}</div>
       <h3 className="font-medium">{title}</h3>
       {children && <p className="mt-1 max-w-sm text-sm text-ink-soft">{children}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -235,7 +233,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
           <motion.div role="dialog" aria-modal aria-label={title}
             initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface shadow-panel scroll-thin">
+            className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto paper-panel bg-surface scroll-thin">
             <div className="flex items-center border-b border-line px-5 py-3">
               <h2 className="font-medium">{title}</h2>
               <IconButton label="Close" onClick={onClose} className="ml-auto"><X className="size-4" /></IconButton>
@@ -272,7 +270,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, x: 24, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 24, scale: 0.95 }}
-              className="pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-xl border border-line bg-glass px-4 py-3 text-sm shadow-panel backdrop-blur-xl"
+              className="pointer-events-auto flex max-w-sm items-center gap-2.5 paper-panel bg-surface px-4 py-3 text-sm"
             >
               <span className={cx("size-2 shrink-0 rounded-full",
                 t.tone === "error" ? "bg-rose" : t.tone === "success" ? "bg-teal" : "bg-accent")} />
