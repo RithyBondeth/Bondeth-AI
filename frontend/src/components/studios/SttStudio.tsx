@@ -76,7 +76,7 @@ export function SttStudio() {
     <>
       <Intro>Dictate live, or record and upload audio, in Khmer or English. Khmer comes back as clean text, with optional word boundaries.</Intro>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
           <Segmented label="Input" value={mode} onChange={(m) => { abortRef.current?.abort(); setMode(m); setResult(null); setBusy(false); setLive(null); }}
             options={[{ value: "live", label: "Live dictation" }, { value: "file", label: "Record or upload" }]} />
