@@ -2,6 +2,7 @@
 
 import { LoaderCircle, X } from "lucide-react";
 import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react";
+import { createPortal } from "react-dom";
 import {
   createContext,
   useCallback,
@@ -224,7 +225,8 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -234,7 +236,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
             initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
             className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto paper-panel bg-surface scroll-thin">
-            <div className="flex items-center border-b border-line px-5 py-3">
+            <div className="sticky top-0 z-10 flex items-center border-b border-line bg-surface px-5 py-3">
               <h2 className="font-medium">{title}</h2>
               <IconButton label="Close" onClick={onClose} className="ml-auto"><X className="size-4" /></IconButton>
             </div>
@@ -242,7 +244,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>, document.body
   );
 }
 
@@ -261,7 +263,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed bottom-5 right-5 z-[60] flex flex-col items-end gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed bottom-4 left-4 right-4 z-[60] flex flex-col items-end gap-2 sm:bottom-5 sm:left-auto sm:right-5">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
@@ -270,11 +272,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, x: 24, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 24, scale: 0.95 }}
-              className="pointer-events-auto flex max-w-sm items-center gap-2.5 paper-panel bg-surface px-4 py-3 text-sm"
+              className="pointer-events-auto flex w-full max-w-sm items-center gap-2.5 paper-panel bg-surface px-4 py-3 text-sm sm:w-auto"
             >
               <span className={cx("size-2 shrink-0 rounded-full",
                 t.tone === "error" ? "bg-rose" : t.tone === "success" ? "bg-teal" : "bg-accent")} />
-              {t.message}
+              <span className="min-w-0 break-words">{t.message}</span>
             </motion.div>
           ))}
         </AnimatePresence>

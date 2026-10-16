@@ -70,7 +70,7 @@ function Account() {
           <Row label="Name">{user.full_name || <span className="text-ink-faint">Not set</span>}</Row>
           <Row label="Email">
             <span className="flex flex-wrap items-center gap-2">
-              {user.email}
+              <span className="min-w-0 break-all">{user.email}</span>
               {user.email_verified
                 ? <Badge tone="teal"><CircleCheck className="size-3" /> Confirmed</Badge>
                 : <Badge tone="rose"><MailWarning className="size-3" /> Not confirmed</Badge>}
