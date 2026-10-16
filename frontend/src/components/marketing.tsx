@@ -29,7 +29,7 @@ export function MarketingFrame({ children }: { children: ReactNode }) {
       <Aurora />
       <a href="#main-content" className="skip-link ink-button">Skip to content</a>
       <header className="marketing-header sticky top-0 z-40">
-        <div className="mx-auto flex h-18 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <div className="mx-auto flex h-18 max-w-6xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
           <Logo />
           <nav className="hidden items-center gap-1 text-sm text-ink-soft md:flex">
             <Link href="/stt" className="rounded-lg px-3 py-2 hover:text-ink">Speech to Text</Link>
@@ -40,8 +40,9 @@ export function MarketingFrame({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <span className={cx("flex items-center gap-2 transition-opacity", hydrated ? "opacity-100" : "opacity-0")}>
               {!user && <Link href="/login" className="hidden rounded-xl px-3 py-2 text-sm font-medium hover:bg-surface-2 sm:block">Sign in</Link>}
-              <Link href="/stt" className="ink-button inline-flex h-9 items-center gap-1.5 bg-ink px-4 text-sm font-medium text-paper transition-transform hover:-translate-y-px">
-                Open studio <ArrowRight className="size-4" />
+              <Link href="/stt" className="ink-button inline-flex h-9 items-center gap-1.5 whitespace-nowrap bg-ink px-3 text-sm font-medium text-paper transition-transform hover:-translate-y-px sm:px-4">
+                <span className="sm:hidden">Studio</span><span className="hidden sm:inline">Open studio</span>
+                <ArrowRight className="hidden size-4 shrink-0 sm:block" />
               </Link>
             </span>
           </div>
