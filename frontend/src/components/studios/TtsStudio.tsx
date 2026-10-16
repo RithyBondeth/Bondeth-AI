@@ -28,15 +28,18 @@ export function Editor({ text, setText, max, busy, disabled, onGenerate, cta, bu
   onGenerate: () => void; cta: string; busyLabel: string;
 }) {
   return (
-    <Panel>
-      <PanelHeader title="Text" km="អត្ថបទ">
-        {SAMPLES.map((s) => (
+    <Panel className="@container/editor">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-5 py-2">
+        <h2 className="whitespace-nowrap text-sm font-medium">Text <span className="khmer font-normal text-ink-soft">· អត្ថបទ</span></h2>
+        <div role="group" aria-label="Sample texts" className="hidden basis-full flex-wrap items-center gap-1 sm:flex @[28rem]/editor:ml-auto @[28rem]/editor:basis-auto">
+          {SAMPLES.map((s) => (
           <motion.button key={s.label} type="button" whileTap={{ scale: 0.94 }} onClick={() => setText(s.text)}
-            className="hidden rounded-lg px-2.5 py-1 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink sm:block">
+            className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink">
             <span className={s.label === "ខ្មែរ" ? "khmer" : undefined}>{s.label}</span>
           </motion.button>
-        ))}
-      </PanelHeader>
+          ))}
+        </div>
+      </div>
       <textarea
         aria-label="Text to speak"
         value={text}
@@ -47,11 +50,11 @@ export function Editor({ text, setText, max, busy, disabled, onGenerate, cta, bu
         className="khmer block min-h-56 w-full resize-y bg-transparent px-5 py-4 text-lg leading-relaxed placeholder:text-ink-faint focus:outline-none"
       />
       <div className="flex items-center gap-3 border-t border-line px-5 py-3">
-        <span className={cx("text-xs tabular-nums", text.length > max * 0.9 ? "text-rose" : "text-ink-soft")}>
+        <span className={cx("shrink-0 whitespace-nowrap text-xs tabular-nums", text.length > max * 0.9 ? "text-rose" : "text-ink-soft")}>
           {text.length.toLocaleString()} / {max.toLocaleString()}
         </span>
-        <span className="hidden text-xs text-ink-faint sm:inline">⌘/Ctrl + Enter</span>
-        <Button className="ml-auto" onClick={onGenerate} loading={busy} disabled={disabled || !text.trim()}
+        <span className="hidden whitespace-nowrap text-xs text-ink-faint @[28rem]/editor:inline">⌘/Ctrl + Enter</span>
+        <Button className="ml-auto shrink-0 whitespace-nowrap" onClick={onGenerate} loading={busy} disabled={disabled || !text.trim()}
           icon={<AudioLines className="size-4" />}>
           {busy ? busyLabel : cta}
         </Button>
@@ -112,7 +115,7 @@ export function TtsStudio() {
     <>
       <Intro>Type Khmer, English, or both in one sentence. Numbers, prices, percentages and dates are read out in full.</Intro>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
           <Editor text={text} setText={setText} max={MAX_CHARS} busy={busy} onGenerate={generate}
             cta="Generate speech" busyLabel="Generating…" />
