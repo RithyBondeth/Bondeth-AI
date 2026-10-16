@@ -26,6 +26,34 @@ id = redis.call('RPOPLPUSH', second, KEYS[3])
 if id then return {id, second} end
 return nil
 """
+RECOVER = """
+local id = redis.call('LINDEX', KEYS[1], 0)
+if not id then return nil end
+local key = ARGV[1] .. id
+local status = redis.call('HGET', key, 'status')
+local queued = 0
+if status and status ~= 'done' and status ~= 'failed' then
+    local target = KEYS[2]
+    if redis.call('HGET', key, 'priority') == 'True' then target = KEYS[3] end
+    redis.call('HSET', key, 'status', 'queued')
+    if ARGV[2] == '1' then redis.call('DEL', key .. ':events') end
+    redis.call('RPUSH', target, id)
+    queued = 1
+end
+redis.call('LPOP', KEYS[1])
+return {id, queued}
+"""
+
+
+def recover(redis: Redis, normal: str, processing: str, job_prefix: str,
+            reset_events: bool = False) -> tuple[str, bool] | None:
+    """Atomically recover one job, including priority routing and event reset.
+
+    A lost connection before execution leaves it in processing; a lost response
+    after execution leaves it queued. Retrying never strands or duplicates it.
+    """
+    result = redis.eval(RECOVER, 3, processing, normal, normal + ":priority", job_prefix, int(reset_events))
+    return (result[0], bool(result[1])) if result else None
 
 
 def submit(redis: Redis, normal: str, processing: str, key: str,

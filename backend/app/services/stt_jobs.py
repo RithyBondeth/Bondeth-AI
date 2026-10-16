@@ -150,17 +150,9 @@ class SttJobQueue:
             self._thread.join(timeout)
 
     def _recover(self) -> None:
-        while (job_id := self._redis.lmove(PROCESSING_KEY, QUEUE_KEY, "LEFT", "RIGHT")) is not None:
-            if self._redis.exists(job_key(job_id)):
-                if self._redis.hget(job_key(job_id), "status") in ("done", "failed"):
-                    self._redis.lrem(QUEUE_KEY, 1, job_id)
-                    continue
-                if self._redis.hget(job_key(job_id), "priority") == "True":
-                    self._redis.lrem(QUEUE_KEY, 1, job_id)
-                    self._redis.rpush(QUEUE_KEY + ":priority", job_id)
-                # Start the event stream over: the job runs again from the beginning.
-                self._redis.delete(events_key(job_id))
-                self._redis.hset(job_key(job_id), "status", "queued")
+        while recovered := queue_storage.recover(self._redis, QUEUE_KEY, PROCESSING_KEY, job_key(""), reset_events=True):
+            job_id, queued = recovered
+            if queued:
                 logger.info("Re-queued interrupted transcription job %s", job_id)
 
     def _loop(self) -> None:

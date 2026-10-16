@@ -119,6 +119,13 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
       if (res.current !== resources) return;
       const node = new AudioWorkletNode(ctx, "pcm16-downsampler");
       ctx.createMediaStreamSource(stream).connect(node);
+      // Keep the worklet on a rendered graph in browsers that suspend dead ends.
+      // A muted sink prevents playing the microphone back through the speakers.
+      const sink = ctx.createGain();
+      sink.gain.value = 0;
+      node.connect(sink).connect(ctx.destination);
+      await ctx.resume();
+      if (res.current !== resources) return;
 
       const ws = new WebSocket(`${API_URL.replace(/^http/, "ws")}/api/v1/stt/live`);
       ws.binaryType = "arraybuffer";

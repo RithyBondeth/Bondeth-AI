@@ -169,15 +169,9 @@ class CloneJobQueue:
 
     def _recover(self) -> None:
         """Put jobs interrupted by a crash or restart back at the front of the queue."""
-        while (job_id := self._redis.lmove(PROCESSING_KEY, QUEUE_KEY, "LEFT", "RIGHT")) is not None:
-            if self._redis.exists(job_key(job_id)):
-                if self._redis.hget(job_key(job_id), "status") in ("done", "failed"):
-                    self._redis.lrem(QUEUE_KEY, 1, job_id)
-                    continue
-                if self._redis.hget(job_key(job_id), "priority") == "True":
-                    self._redis.lrem(QUEUE_KEY, 1, job_id)
-                    self._redis.rpush(QUEUE_KEY + ":priority", job_id)
-                self._redis.hset(job_key(job_id), "status", "queued")
+        while recovered := queue_storage.recover(self._redis, QUEUE_KEY, PROCESSING_KEY, job_key("")):
+            job_id, queued = recovered
+            if queued:
                 logger.info("Re-queued interrupted clone job %s", job_id)
 
     def _loop(self) -> None:

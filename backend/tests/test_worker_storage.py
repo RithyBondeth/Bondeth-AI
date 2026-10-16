@@ -7,6 +7,52 @@ from app.services.stt_jobs import SttJob, SttJobQueue, QueueFull, QUEUE_KEY, PRO
 from tests.conftest import sync_redis
 
 
+@pytest.mark.parametrize("kind", ["clone", "stt"])
+@pytest.mark.parametrize("priority", [False, True])
+@pytest.mark.parametrize("disconnect", ["before", "after"])
+def test_recovery_disconnect_never_strands_or_duplicates_jobs(client, tmp_path, kind, priority, disconnect):
+    from redis.exceptions import ConnectionError
+    from app.services.clone_jobs import CloneJob, CloneJobQueue
+
+    redis = sync_redis()
+    if kind == "stt":
+        queue = SttJobQueue(redis, None, tmp_path, 10, 60)
+        job = SttJob(audio_path=tmp_path / "audio.wav", language="km", priority=priority)
+    else:
+        queue = CloneJobQueue(redis, lambda _: None, tmp_path, 10, 60)
+        job = CloneJob(user_id="owner", text="test", lang="km", speed=1, priority=priority,
+                       work_dir=tmp_path, reference_path=tmp_path / "reference.wav")
+    normal, processing = f"{kind}:queue", f"{kind}:processing"
+    key = f"{kind}:job:{job.id}"
+    job.status = "running"
+    redis.hset(key, mapping=job.to_redis())
+    redis.expire(key, 60)
+    redis.lpush(processing, job.id)
+    if kind == "stt":
+        redis.xadd(key + ":events", {"event": "partial", "data": "old attempt"})
+
+    class Disconnect:
+        def eval(self, *args):
+            if disconnect == "after":
+                redis.eval(*args)
+            raise ConnectionError("Injected lost connection/response")
+
+    queue._redis = Disconnect()
+    with pytest.raises(ConnectionError):
+        queue._recover()
+    destination = normal + ":priority" if priority else normal
+    assert redis.llen(processing) + redis.llen(destination) == 1
+    queue._redis = redis
+    queue._recover()
+    assert redis.lrange(destination, 0, -1) == [job.id]
+    assert redis.llen(processing) == 0 and redis.hget(key, "status") == "queued"
+    assert 0 < redis.ttl(key) <= 60
+    if kind == "stt":
+        assert not redis.exists(key + ":events")
+    queue._recover()
+    assert redis.lrange(destination, 0, -1) == [job.id]
+
+
 def test_atomic_queue_admission(client, tmp_path):
     queue = SttJobQueue(sync_redis(), None, tmp_path, max_pending=2, ttl_s=60)
     def submit(i):
