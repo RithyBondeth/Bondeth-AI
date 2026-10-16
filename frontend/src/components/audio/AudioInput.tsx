@@ -127,7 +127,7 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
       onDrop={(e) => { e.preventDefault(); setDragging(false); accept(e.dataTransfer.files[0]); }}
       className={cx(
         "relative flex items-center rounded-2xl border border-dashed transition-colors",
-        dragging ? "border-accent bg-accent-soft" : "border-line",
+        dragging ? "border-accent bg-accent-soft" : "border-field-border",
         compact ? "gap-4 p-4" : "flex-col gap-6 px-6 py-12 text-center",
       )}
     >
@@ -152,15 +152,15 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
           whileTap={{ scale: 0.93 }}
           aria-label={recording ? "Stop recording" : "Start recording"}
           className={cx(
-            "relative grid place-items-center rounded-full text-white transition-colors",
+            "relative grid place-items-center rounded-full transition-colors",
             "shadow-[inset_0_2px_0_rgb(255_255_255/0.3),0_14px_30px_-10px_currentColor]",
             orbSize,
-            recording ? "bg-rose text-rose" : "bg-accent text-accent",
+            recording ? "bg-rose text-rose-ink" : "bg-accent text-accent-ink",
           )}
         >
           {recording
-            ? <Square className={cx("fill-white text-white", compact ? "size-5" : "size-8")} />
-            : <Mic className={cx("text-white", compact ? "size-6" : "size-10")} />}
+            ? <Square className={cx("fill-current", compact ? "size-5" : "size-8")} />
+            : <Mic className={compact ? "size-6" : "size-10"} />}
         </motion.button>
       </div>
 

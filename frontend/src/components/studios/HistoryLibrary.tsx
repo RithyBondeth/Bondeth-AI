@@ -66,7 +66,7 @@ function Library() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
           <span className="sr-only">Search transcripts</span>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search… ស្វែងរក"
-            className="khmer h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus:border-accent focus:outline-none" />
+            className="ink-field khmer h-10 w-full rounded-xl border bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus:border-accent focus:outline-none" />
         </label>
         <Segmented label="Language" value={lang} onChange={setLang}
           options={[{ value: "all", label: "All" }, { value: "km", label: <span className="khmer">ខ្មែរ</span> }, { value: "en", label: "English" }]} />

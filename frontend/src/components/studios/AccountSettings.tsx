@@ -167,7 +167,7 @@ function DeleteAccountForm({ user }: { user: User }) {
         {(id) => <Input id={id} name="password" type="password" required autoComplete="current-password" autoFocus />}
       </Field>
       {error && <p role="alert" className="rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose">{error}</p>}
-      <Button type="submit" className="w-full !bg-rose !text-white" size="lg" loading={busy} icon={<Trash2 className="size-4" />}>
+      <Button type="submit" className="w-full !bg-rose !text-rose-ink" size="lg" loading={busy} icon={<Trash2 className="size-4" />}>
         Delete my account forever
       </Button>
     </form>
