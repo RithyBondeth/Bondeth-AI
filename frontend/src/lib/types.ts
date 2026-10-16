@@ -32,7 +32,7 @@ export type Transcription = {
   created_at: string;
 };
 
-export type TtsPreview = { primary_lang: string; chunks: { lang: string; text: string }[] };
+export type TtsPreview = { primary_lang: string; engine?: string; chunks: { lang: string; text: string }[] };
 
 export type Voice = {
   id: string;

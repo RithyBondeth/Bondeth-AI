@@ -168,6 +168,7 @@ def test_tts_preview(client, fake_tts):
     res = client.post("/api/v1/tts/preview", json={"text": "ខ្ញុំប្រើ Facebook"})
     assert res.json() == {
         "primary_lang": "km",
+        "engine": "mms",
         "chunks": [{"lang": "km", "text": "ខ្ញុំប្រើ"}, {"lang": "en", "text": "facebook"}],
     }
 

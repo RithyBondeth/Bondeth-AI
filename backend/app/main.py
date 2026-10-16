@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["Retry-After", "X-Cache", "X-TTS-Engine", "X-Audio-Duration"],
+        expose_headers=["Retry-After", "X-Cache", "X-TTS-Engine", "X-TTS-Fallback", "X-Audio-Duration"],
     )
     app.add_exception_handler(LimitExceeded, limit_exceeded_handler)
 

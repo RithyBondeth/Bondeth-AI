@@ -94,7 +94,13 @@ export function TtsStudio() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, lang, speed }),
       });
-      add({ kind: "tts", text, voice: "Standard voice", blob: await res.blob() });
+      const engine = res.headers.get("X-TTS-Engine");
+      const fallback = res.headers.get("X-TTS-Fallback") === "short-khmer-omni-failed";
+      const voice = fallback ? "MMS fallback — different voice" :
+        engine === "omnivoice" ? "OmniVoice" : engine === "mms" ? "MMS" :
+        engine === "voxcpm" ? "VoxCPM2" : "Standard voice";
+      add({ kind: "tts", text, voice, blob: await res.blob(),
+        notice: fallback ? "OmniVoice could not speak this short Khmer phrase. This clip uses MMS, a different speaker. Try again to retry OmniVoice." : undefined });
     } catch (err) {
       toast(errorText(err, "Couldn't generate speech."), "error");
     } finally {
@@ -127,12 +133,17 @@ export function TtsStudio() {
                 <div className="flex items-center gap-3 rounded-xl bg-surface-2 p-3">
                   <HeadphonesDoodle className="h-10 w-11 shrink-0 text-ink" />
                   <div className="text-sm">
-                    <p className="font-medium">Standard voice</p>
+                    <p className="font-medium">{preview?.engine === "omnivoice" ? "OmniVoice · main voice" : "Standard voice"}</p>
                     <Link href="/clone" className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
                       Use your own voice <ArrowRight className="size-3" />
                     </Link>
                   </div>
                 </div>
+                {preview?.engine === "omnivoice" && (
+                  <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+                    If a short Khmer phrase fails, a clearly labelled MMS fallback uses a different speaker.
+                  </p>
+                )}
               </Setting>
             </div>
           </Panel>
