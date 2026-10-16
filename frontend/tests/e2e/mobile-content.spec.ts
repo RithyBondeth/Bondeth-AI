@@ -56,9 +56,11 @@ async function mockSession(page: Page) {
   });
 }
 
+for (const theme of ["light", "dark"] as const) {
 for (const width of [320, 390, 768, 1024]) {
-  test(`populated libraries and dialogs fit at ${width}px`, async ({ page }, info) => {
+  test(`populated libraries and dialogs fit at ${width}px in ${theme} mode`, async ({ page }, info) => {
     await mockSession(page);
+    await page.addInitScript((value) => localStorage.setItem("bondeth.theme", value), theme);
     await page.setViewportSize({ width, height: width === 320 ? 568 : 740 });
     for (const path of ["/history", "/voices", "/api-keys", "/clone", "/tts", "/account"]) {
       await page.goto(path);
@@ -83,6 +85,7 @@ for (const width of [320, 390, 768, 1024]) {
         expect(notification!.x + notification!.width).toBeLessThanOrEqual(width);
         await fits(page.locator("body"), `Key dialog and notification at ${width}px`);
         await page.getByRole("button", { name: "Close", exact: true }).click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
       }
       if (path === "/voices") {
         await page.getByRole("button", { name: "Add voice", exact: true }).click();
@@ -96,6 +99,7 @@ for (const width of [320, 390, 768, 1024]) {
         await expect(page.getByRole("dialog").getByRole("button", { name: "Close", exact: true })).toBeInViewport();
         if (width === 320) await page.screenshot({ path: info.outputPath("add-voice-dialog-320.png") });
         await page.getByRole("button", { name: "Close", exact: true }).click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
       }
       if (width === 320 && ["/history", "/voices", "/api-keys", "/clone", "/tts"].includes(path)) {
         await page.screenshot({ path: info.outputPath(`${path.slice(1)}-${width}.png`), fullPage: true });
@@ -104,7 +108,8 @@ for (const width of [320, 390, 768, 1024]) {
   });
 }
 
-test("account forms fit a small phone", async ({ page }) => {
+test(`account forms fit a small phone in ${theme} mode`, async ({ page }) => {
+  await page.addInitScript((value) => localStorage.setItem("bondeth.theme", value), theme);
   await page.setViewportSize({ width: 320, height: 568 });
   for (const path of ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/voice-consent"]) {
     await page.goto(path);
@@ -112,3 +117,4 @@ test("account forms fit a small phone", async ({ page }) => {
     await fits(page.locator("body"), path);
   }
 });
+}

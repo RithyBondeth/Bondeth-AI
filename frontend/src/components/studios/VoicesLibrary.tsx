@@ -147,8 +147,8 @@ function VoiceCard({ voice, index, onEdit, onDelete }: { voice: Voice; index: nu
       <div className="mt-4 flex items-center gap-1 border-t border-line pt-3">
         <motion.button type="button" onClick={togglePlay} whileTap={{ scale: 0.9 }}
           aria-label={playing ? "Pause sample" : "Play sample"}
-          className="grid size-9 place-items-center rounded-full bg-lilac text-white shadow-[0_6px_14px_-6px_var(--lilac)]">
-          {playing ? <Pause className="size-4 fill-white" /> : <Play className="ml-0.5 size-4 fill-white" />}
+          className="grid size-9 place-items-center rounded-full bg-lilac text-lilac-ink shadow-[0_6px_14px_-6px_var(--lilac)]">
+          {playing ? <Pause className="size-4 fill-current" /> : <Play className="ml-0.5 size-4 fill-current" />}
         </motion.button>
         <Link href={`/clone?voice=${voice.id}`}
           className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink">
