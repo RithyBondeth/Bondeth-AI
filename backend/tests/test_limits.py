@@ -8,12 +8,16 @@ from app.config import get_settings
 from app.deps import get_stt_service, get_tts_service
 from app.limits import Caller, Limits, QuotaExceeded
 from app.main import app
-from app.services.tts import NothingToSpeak
+from app.services.tts import NothingToSpeak, SpeechResult
 from tests.fakes import FakeStt, wav_bytes
 
 
 class FakeTts:
     engine = "mms"
+    def synthesize_result(self, text, lang="auto", speed=1.0):
+        wave, sr = self.synthesize(text, lang, speed)
+        return SpeechResult(wave, sr, self.engine)
+
     def synthesize(self, text, lang="auto", speed=1.0):
         import numpy as np
         if text == "!!!":

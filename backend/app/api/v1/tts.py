@@ -10,7 +10,7 @@ from app.deps import get_tts_cache, get_tts_service
 from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
 from app.services.tts_cache import TtsCache
-from app.services.errors import EngineUnavailable
+from app.services.errors import EngineUnavailable, SpeechGenerationError
 
 router = APIRouter(prefix="/tts", tags=["text-to-speech"])
 
@@ -24,6 +24,7 @@ class TtsRequest(BaseModel):
 
 class TtsPreview(BaseModel):
     primary_lang: str
+    engine: str
     chunks: list[dict[str, str]]
 
 
@@ -49,20 +50,26 @@ async def text_to_speech(
     _check_length(req, settings)
     _, chunks = tts.prepare(req.text, req.lang)
     key = cache.key(chunks, req.speed)
+    engine, fallback = tts.engine, "none"
     async with limits.spend("tts_chars", caller, len(req.text)):
         if cached := await cache.get(key):
             wav, duration = cached
         else:
             try:
-                wave, sr = await run_in_threadpool(tts.synthesize, req.text, req.lang, req.speed)
+                result = await run_in_threadpool(tts.synthesize_result, req.text, req.lang, req.speed)
             except NothingToSpeak as exc:
                 raise HTTPException(422, str(exc)) from exc
-            except EngineUnavailable as exc:
+            except (EngineUnavailable, SpeechGenerationError) as exc:
                 raise HTTPException(503, str(exc)) from exc
-            wav, duration = to_wav_bytes(wave, sr), len(wave) / sr
+            engine, fallback = result.engine, result.fallback
+            wav = to_wav_bytes(result.wave, result.sample_rate)
+            duration = len(result.wave) / result.sample_rate
             # A quality engine may create its synthetic house reference on this
             # request. Cache under its final identity so the next request can hit.
-            await cache.put(cache.key(chunks, req.speed), wav, duration)
+            # Do not replace OmniVoice with a cached different speaker. A new
+            # request must try the main voice again after a transient failure.
+            if fallback == "none":
+                await cache.put(cache.key(chunks, req.speed), wav, duration)
 
     return Response(
         content=wav,
@@ -70,8 +77,9 @@ async def text_to_speech(
         headers={
             "Content-Disposition": 'inline; filename="speech.wav"',
             "X-Audio-Duration": f"{duration:.2f}",
-            "X-Cache": "HIT" if cached else "MISS",
-            "X-TTS-Engine": tts.engine,
+            "X-Cache": "BYPASS" if fallback != "none" else ("HIT" if cached else "MISS"),
+            "X-TTS-Engine": engine,
+            "X-TTS-Fallback": fallback,
         },
     )
 
@@ -85,4 +93,4 @@ def preview(
     """Show exactly what each voice will say, without generating audio."""
     _check_length(req, settings)
     primary, chunks = tts.prepare(req.text, req.lang)
-    return TtsPreview(primary_lang=primary, chunks=[{"lang": l, "text": t} for l, t in chunks])
+    return TtsPreview(primary_lang=primary, engine=tts.engine, chunks=[{"lang": l, "text": t} for l, t in chunks])

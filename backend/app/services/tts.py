@@ -15,12 +15,14 @@ import io
 import logging
 import threading
 import unicodedata
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.io.wavfile
 
 from app.config import Settings
 from app.services import voxcpm
+from app.services.errors import EngineUnavailable, SpeechGenerationError
 from app.text.english_normalizer import normalize_english
 from app.text.khmer_normalizer import normalize_khmer
 from app.text.script_split import dominant_lang, split_runs, split_sentences
@@ -30,6 +32,15 @@ logger = logging.getLogger(__name__)
 SAMPLE_RATE = 16_000  # both MMS models output 16 kHz
 SENTENCE_PAUSE_S = 0.25
 MAX_CHUNK_CHARS = 400  # VITS quality and memory degrade on very long inputs
+SHORT_KHMER_FALLBACK_CHARS = 40  # normalized letters, marks and digits; independent of speed
+
+
+@dataclass(frozen=True)
+class SpeechResult:
+    wave: np.ndarray
+    sample_rate: int
+    engine: str
+    fallback: str = "none"
 
 
 class NothingToSpeak(ValueError):
@@ -165,6 +176,40 @@ class TtsService:
         # peak normalization. Bounded gain avoids making near-silence blast loudly.
         return _master_audio(np.concatenate(pieces)), SAMPLE_RATE
 
+    def synthesize_result(self, text: str, lang: str = "auto", speed: float = 1.0) -> SpeechResult:
+        """API result with per-request provenance; never change the configured voice.
+
+        OmniVoice gets its usual bounded retry first. Only a failed, short,
+        Khmer-only utterance may use MMS. Long/mixed text and engine/infra errors
+        must not silently change speaker. The tuple-only synthesize method remains
+        available for primary-engine evaluation and existing integrations.
+        """
+        try:
+            wave, sr = self.synthesize(text, lang, speed)
+            return SpeechResult(wave, sr, self.engine)
+        except SpeechGenerationError:
+            if self.engine != "omnivoice":
+                raise
+            primary, chunks = self.prepare(text, lang)
+            spoken = [ch for _, chunk in chunks for ch in chunk
+                      if unicodedata.category(ch)[0] in "LMN"]
+            if (primary != "km" or len(chunks) != 1 or not spoken
+                    or len(spoken) > SHORT_KHMER_FALLBACK_CHARS
+                    or not all("\u1780" <= ch <= "\u17ff" for ch in spoken)):
+                raise
+
+        logger.warning("Using labelled MMS fallback after failed short Khmer OmniVoice TTS")
+        try:
+            voice = self.load("km")
+        except OSError as exc:
+            raise EngineUnavailable("The Khmer fallback voice could not be loaded. Please retry.") from exc
+        wave = voice.speak(chunks[0][1], speed)
+        from app.services.omni_tts import usable_audio
+        if wave is None or not usable_audio(np.asarray(wave)):
+            raise SpeechGenerationError("Neither voice produced usable speech. Please retry or use a longer phrase.")
+        return SpeechResult(_master_audio(_fade_edges(wave, SAMPLE_RATE)), SAMPLE_RATE,
+                            "mms", "short-khmer-omni-failed")
+
     def _synthesize_omni(self, chunks: list[tuple[str, str]], speed: float) -> tuple[np.ndarray, int]:
         chunks = [(lang, text) for lang, text in chunks if any(ch.isalnum() for ch in text)]
         if not chunks:
@@ -176,8 +221,10 @@ class TtsService:
             if pieces:
                 pieces.append(np.zeros(int(0.12 * voice.sample_rate / speed), dtype=np.float32))
             wave = np.asarray(voice.speak(text, lang if len(languages) == 1 else None, speed), dtype=np.float32)
-            if not wave.size or not np.isfinite(wave).all():
-                raise RuntimeError("The speech model produced empty or invalid audio.")
+            if (wave.ndim != 1 or not wave.size or not np.isfinite(wave).all()
+                    or np.max(np.abs(wave)) <= 1e-5):
+                raise SpeechGenerationError(
+                    "The speech model returned no usable audio. Please retry or use a slightly longer phrase.")
             pieces.append(_fade_edges(wave, voice.sample_rate))
         return _master_audio(np.concatenate(pieces)), voice.sample_rate
 

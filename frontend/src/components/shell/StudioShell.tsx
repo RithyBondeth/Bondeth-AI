@@ -119,7 +119,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
       <UsageMeter className={cx("mx-3 mb-3", hide)} />
 
       <div className={cx("mx-3 mb-3 overflow-hidden rounded-xl border border-dashed border-line bg-accent-soft/30 p-4", hide)}>
-        <TwinVoicesDoodle className="h-16 w-28 text-ink" still />
+        <TwinVoicesDoodle className="h-16 w-28 text-ink" still loading="eager" />
         <p className="mt-2 text-sm font-medium">Your voice, any words</p>
         <p className="text-xs text-ink-soft">Save a 3-30 s sample once, then clone it from any tool.</p>
         <Link href="/voices" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">Manage voices →</Link>

@@ -5,6 +5,7 @@ for a stable voice across languages and requests. No real person's sample is use
 """
 import hashlib
 import json
+import logging
 import threading
 import uuid
 from pathlib import Path
@@ -14,11 +15,21 @@ import soundfile as sf
 from filelock import FileLock
 
 from app.config import Settings
+from app.services.errors import SpeechGenerationError
 from app.services.voice_clone import get_omni_engine
 from app.text.speech_duration import khmer_speech_duration
 
 HOUSE_TEXT = "សួស្តី! សូមស្វាគមន៍មកកាន់កម្មវិធីរបស់យើង។ ខ្ញុំនឹងអានអត្ថបទជាភាសាខ្មែរយ៉ាងច្បាស់ និងធម្មជាតិ។"
+TTS_GENERATION_VERSION = 5  # invalidate speech cached before the short-phrase timing policy
+MIN_KHMER_DURATION = 3.0
+SHORT_KHMER_RETRY_DURATION = 4.0
 _house_lock = threading.Lock()
+logger = logging.getLogger(__name__)
+
+
+def usable_audio(wave: np.ndarray) -> bool:
+    return (wave.ndim == 1 and wave.size > 0 and np.isfinite(wave).all()
+            and np.max(np.abs(wave)) > 1e-5)
 
 
 def house_path(s: Settings) -> Path:
@@ -64,4 +75,21 @@ class OmniTts:
 
     def speak(self, text: str, language: str | None, speed: float) -> np.ndarray:
         duration = khmer_speech_duration(text, speed, self._s.tts_omni_khmer_chars_per_second)
-        return self.engine.clone(text, language, self.house_voice(), HOUSE_TEXT, speed, duration=duration)
+        # Tiny fixed windows can produce only near-silence, which the model's
+        # postprocessor removes entirely. Keep this floor absolute at fast speeds;
+        # trimming still removes unused silence. Do not retime English or cloning.
+        if duration is not None:
+            duration = max(MIN_KHMER_DURATION, duration)
+        reference = self.house_voice()
+        wave = np.asarray(self.engine.clone(text, language, reference, HOUSE_TEXT, speed,
+                                           duration=duration), dtype=np.float32)
+        if not usable_audio(wave) and duration is not None and duration < SHORT_KHMER_RETRY_DURATION:
+            # One bounded recovery for stochastic short-phrase failures, retaining
+            # the same text, speaker, engine, decoding steps and sampling defaults.
+            logger.warning("Retrying short Khmer TTS with a %.1fs window", SHORT_KHMER_RETRY_DURATION)
+            wave = np.asarray(self.engine.clone(text, language, reference, HOUSE_TEXT, speed,
+                                               duration=SHORT_KHMER_RETRY_DURATION), dtype=np.float32)
+        if not usable_audio(wave):
+            raise SpeechGenerationError(
+                "The speech model returned no usable audio. Please retry or use a slightly longer phrase.")
+        return wave
