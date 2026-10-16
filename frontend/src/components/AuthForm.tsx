@@ -103,7 +103,7 @@ const AUTH_ART = {
   speaker: { Art: SpeakerDoodle, label: "A Cambodian woman speaking into a studio microphone" },
   key: { Art: UnlockDoodle, label: "A doodle of a padlock, key, and envelope" },
   listener: { Art: ListenerDoodle, label: "A Cambodian man listening with headphones" },
-  reader: { Art: ReaderDoodle, label: "A doodle of an open notebook and pencil" },
+  reader: { Art: ReaderDoodle, label: "A doodle of someone capturing an idea with a phone and notebook" },
 };
 
 /** Split-screen frame shared by the sign-in, sign-up and account-recovery pages; each page picks its own character. */

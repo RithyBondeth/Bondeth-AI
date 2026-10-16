@@ -37,7 +37,7 @@ for (const theme of ["light", "dark"] as const) {
         await closing.scrollIntoViewIfNeeded();
         await expect(closing).toHaveCSS("opacity", "1");
         await page.getByRole("heading", { name: "Speak Khmer. Be heard." }).scrollIntoViewIfNeeded();
-        await expect(page.getByText("Your words. Your language. Your little studio.")).toHaveCSS("opacity", "1");
+        await expect(page.getByText("No installation needed", { exact: true })).toHaveCSS("opacity", "1");
         await page.evaluate(() => {
           if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
           scrollTo(0, 0);
