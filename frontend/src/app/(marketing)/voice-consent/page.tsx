@@ -68,7 +68,7 @@ export default function VoiceConsentPage() {
             A voice belongs to the person who speaks with it. These are the rules for cloning one with Bondeth AI.
           </p>
         </div>
-        <TwinVoicesDoodle className="w-56 shrink-0 text-ink" label="Doodle of a person waving at their dashed voice clone" />
+        <TwinVoicesDoodle className="w-56 shrink-0 text-ink" label="A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" />
       </div>
 
       <div className="mt-12 space-y-5">

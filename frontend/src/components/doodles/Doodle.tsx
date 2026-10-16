@@ -51,18 +51,18 @@ const drawVariants: Variants = {
     pathLength: 1,
     opacity: 1,
     transition: {
-      pathLength: { delay: i * 0.12, duration: 0.8, ease: "easeInOut" },
-      opacity: { delay: i * 0.12, duration: 0.01 },
+      pathLength: { delay: Math.min(i, 4) * 0.08, duration: 0.65, ease: "easeInOut" },
+      opacity: { delay: Math.min(i, 4) * 0.08, duration: 0.01 },
     },
   }),
 };
 
 const popVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.6 },
+  hidden: { opacity: 0, scale: 0.96 },
   visible: (i: number = 0) => ({
     opacity: 1,
     scale: 1,
-    transition: { delay: i * 0.12, type: "spring", stiffness: 260, damping: 18 },
+    transition: { delay: Math.min(i, 4) * 0.08, type: "spring", stiffness: 260, damping: 18 },
   }),
 };
 
@@ -96,7 +96,7 @@ export function useLoop() {
   return useContext(Looping);
 }
 
-export function Doodle({ viewBox, className, label, strokeWidth = 2.5, still = false, children, ...position }: DoodleProps) {
+export function Doodle({ viewBox, className, label, strokeWidth = 1.8, still = false, children, ...position }: DoodleProps) {
   const prefix = `doodle${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   // The hydration snapshot must match the server's unknown OS preference.
   // Subscribe after hydration, also responding when the user changes the setting.
@@ -112,7 +112,7 @@ export function Doodle({ viewBox, className, label, strokeWidth = 2.5, still = f
     <motion.svg
       ref={ref}
       viewBox={viewBox}
-      className={className}
+      className={className ? `illustration ${className}` : "illustration"}
       fill="none"
       stroke="currentColor"
       strokeWidth={strokeWidth}
@@ -124,7 +124,7 @@ export function Doodle({ viewBox, className, label, strokeWidth = 2.5, still = f
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      overflow="visible"
+      overflow="hidden"
       {...position}
     >
       <Patterns prefix={prefix} />

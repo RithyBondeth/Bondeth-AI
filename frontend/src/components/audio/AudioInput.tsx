@@ -128,7 +128,7 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
       className={cx(
         "relative flex items-center rounded-2xl border border-dashed transition-colors",
         dragging ? "border-accent bg-accent-soft" : "border-line",
-        compact ? "gap-4 p-4" : "dot-grid flex-col gap-6 px-6 py-12 text-center",
+        compact ? "gap-4 p-4" : "flex-col gap-6 px-6 py-12 text-center",
       )}
     >
       <div className="relative grid place-items-center">

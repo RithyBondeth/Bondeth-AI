@@ -99,11 +99,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 }
 
 const AUTH_ART = {
-  clone: { Art: TwinVoicesDoodle, label: "Doodle of a person waving at their dashed voice clone" },
-  speaker: { Art: SpeakerDoodle, label: "Doodle of a woman talking into a microphone, her words landing on a card" },
-  key: { Art: UnlockDoodle, label: "Doodle of someone turning a big key in a padlock" },
-  listener: { Art: ListenerDoodle, label: "Doodle of someone relaxing with headphones on" },
-  reader: { Art: ReaderDoodle, label: "Doodle of someone reading an open notebook" },
+  clone: { Art: TwinVoicesDoodle, label: "A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" },
+  speaker: { Art: SpeakerDoodle, label: "A Cambodian woman speaking into a studio microphone" },
+  key: { Art: UnlockDoodle, label: "A doodle of a padlock, key, and envelope" },
+  listener: { Art: ListenerDoodle, label: "A Cambodian man listening with headphones" },
+  reader: { Art: ReaderDoodle, label: "A doodle of an open notebook and pencil" },
 };
 
 /** Split-screen frame shared by the sign-in, sign-up and account-recovery pages; each page picks its own character. */
@@ -114,7 +114,7 @@ export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="dot-grid relative hidden overflow-hidden border-r border-line bg-surface lg:flex lg:flex-col lg:justify-between lg:p-10">
+      <div className="relative hidden overflow-hidden border-r-2 border-dashed border-line bg-surface lg:flex lg:flex-col lg:justify-between lg:p-10">
         <Logo className="self-start" />
         <div className="relative mx-auto w-full max-w-md">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 100, damping: 16 }}>
@@ -145,7 +145,7 @@ export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", 
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}
             className="w-full max-w-sm">
             <p className="khmer text-sm text-accent">{km}</p>
-            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">{title}</h1>
             <p className="mb-8 mt-1 text-ink-soft">{subtitle}</p>
             {children}
           </motion.div>
