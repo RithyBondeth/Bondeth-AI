@@ -92,12 +92,12 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
         onClick={toggle}
         whileTap={{ scale: 0.9 }}
         aria-label={playing ? "Pause" : "Play"}
-        className={cx("grid shrink-0 place-items-center rounded-full text-white shadow-[0_6px_16px_-6px_currentColor]", compact ? "size-8" : "size-10")}
-        style={{ background: color, color }}
+        className={cx("grid shrink-0 place-items-center rounded-full shadow-[0_6px_16px_-6px_currentColor]", compact ? "size-8" : "size-10")}
+        style={{ background: color, color: `var(--${tone}-ink)` }}
       >
         {playing
-          ? <Pause className={cx("fill-white text-white", compact ? "size-3.5" : "size-4")} />
-          : <Play className={cx("ml-0.5 fill-white text-white", compact ? "size-3.5" : "size-4")} />}
+          ? <Pause className={cx("fill-current", compact ? "size-3.5" : "size-4")} />
+          : <Play className={cx("ml-0.5 fill-current", compact ? "size-3.5" : "size-4")} />}
       </motion.button>
 
       <div
