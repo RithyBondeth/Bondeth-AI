@@ -13,7 +13,7 @@ import { EmptyState, IconButton, Panel, PanelHeader, cx } from "@/components/ui"
  * list survives moving between tools; audio stays in memory and is gone on reload.
  */
 
-export type Recent = { id: string; kind: "tts" | "clone"; text: string; voice: string; blob: Blob; createdAt: number };
+export type Recent = { id: string; kind: "tts" | "clone"; text: string; voice: string; blob: Blob; createdAt: number; notice?: string };
 
 type RecentsApi = {
   items: Recent[];
@@ -63,6 +63,7 @@ export function RecentsPanel({ kind, className }: { kind: Recent["kind"]; classN
                     </IconButton>
                   </div>
                   <AudioPlayer blob={r.blob} filename={`bondeth-${r.kind}.wav`} tone={r.kind === "clone" ? "lilac" : "accent"} compact />
+                  {r.notice && <p role="status" className="rounded-lg bg-surface-2 p-3 text-sm text-ink">{r.notice}</p>}
                   <p className="flex items-center gap-1.5 text-xs text-ink-soft">
                     <Clock className="size-3" />
                     {new Date(r.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} · {r.voice}

@@ -30,11 +30,11 @@ class TtsCache:
 
     def key(self, chunks: list[tuple[str, str]], speed: float) -> str:
         if self._s.tts_engine == "omnivoice":
-            from app.services.omni_tts import house_path
+            from app.services.omni_tts import TTS_GENERATION_VERSION, house_path
             path = house_path(self._s)
             # Regenerating/removing a synthetic house voice must not reuse old audio.
             fingerprint = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
-            engine = ["omnivoice", self._s.clone_model, self._s.clone_model_revision,
+            engine = ["omnivoice", TTS_GENERATION_VERSION, self._s.clone_model, self._s.clone_model_revision,
                       self._s.tts_omni_voice, self._s.tts_omni_khmer_chars_per_second, fingerprint]
         elif self._s.tts_engine == "voxcpm":
             engine = ["voxcpm", self._s.voxcpm_model_revision, self._s.voxcpm_house_voice]

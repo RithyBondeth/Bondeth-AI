@@ -12,9 +12,11 @@ const ORANGE = "var(--art-orange)";
 const SPARKLE = "M12 2 Q13 11 22 12 Q13 13 12 22 Q11 13 2 12 Q11 11 12 2 Z";
 
 /** Hand-drawn scenes share one ink-and-saffron style and use responsive image sizes. */
-function Illustration({ name, className, label, hero = false, sizes }: Props & { name: string; hero?: boolean; sizes?: string }) {
+function Illustration({ name, className, label, hero = false, sizes, loading }: Props & {
+  name: string; hero?: boolean; sizes?: string; loading?: "lazy" | "eager";
+}) {
   return <Image src={`/illustrations/${name}.png`} alt={label ?? ""}
-    width={1448} height={1086} preload={hero}
+    width={1448} height={1086} preload={hero} loading={loading}
     sizes={sizes ?? (hero ? "(max-width: 1023px) 90vw, 540px" : "(max-width: 767px) 80vw, 384px")}
     className={`illustration-art object-contain ${className ?? ""}`} />;
 }
@@ -87,7 +89,7 @@ export function ListenerDoodle(props: Props) {
   return <Illustration {...props} name="listener-doodle-v2" />;
 }
 
-export function TwinVoicesDoodle(props: Props) {
+export function TwinVoicesDoodle(props: Props & { loading?: "lazy" | "eager" }) {
   return <Illustration {...props} name="voice-clone-doodle-v2" />;
 }
 
