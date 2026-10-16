@@ -26,6 +26,16 @@ test(`studio screens and navigation fit at ${width}px`, async ({ page }, info) =
       await page.evaluate(() => document.fonts.ready);
       await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
       await expect(page.locator("main > div").first()).toHaveCSS("filter", "blur(0px)");
+      if (path === "/stt") {
+        const inputModes = page.getByRole("radiogroup", { name: "Input", exact: true });
+        for (const option of await inputModes.getByRole("radio").all()) {
+          expect(await option.evaluate((button) => {
+            const range = document.createRange();
+            range.selectNodeContents(button.querySelector("span.relative")!);
+            return range.getClientRects().length;
+          })).toBe(1);
+        }
+      }
       const overflow = await page.locator("main").evaluate((main) => ({
         page: document.documentElement.scrollWidth > innerWidth,
         elements: Array.from(main.querySelectorAll("input, textarea, button, pre, select, h2, h3"))
@@ -51,6 +61,16 @@ test(`studio screens and navigation fit at ${width}px`, async ({ page }, info) =
       await page.getByRole("link", { name: "Speech to Text", exact: true }).click();
       await expect(page).toHaveURL(/\/stt$/);
       await expect(close).toHaveCount(0);
+    } else {
+      const toggle = page.locator("header").getByRole("button", { name: "Collapse or expand sidebar" });
+      await toggle.click();
+      await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
+      await expect(page.locator("aside").getByRole("button", { name: "Sign out" })).toHaveCount(0);
+      await expect(page.locator("header").getByRole("button", { name: "Sign out" })).toBeVisible();
+      await expect.poll(() => page.locator("aside").evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(72);
+      await page.screenshot({ path: info.outputPath(`sidebar-collapsed-${width}.png`) });
+      await toggle.click();
+      await expect(page.locator("html")).toHaveAttribute("data-sidebar", "expanded");
     }
 });
 }

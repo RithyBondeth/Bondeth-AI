@@ -29,6 +29,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const current = findNav(pathname);
+  const user = useUser();
+  const hydrated = useHydrated();
 
   // Sync the stored user once per visit (email confirmed elsewhere, or a session ended by a password reset).
   useEffect(() => { refreshUser().catch(() => {}); }, []);
@@ -69,6 +71,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
             <IconButton label="Open menu" onClick={() => setDrawer(true)} className="lg:hidden">
               <Menu className="size-5" />
             </IconButton>
+            <IconButton label="Collapse or expand sidebar" onClick={toggleSidebar} className="hidden lg:grid">
+              <PanelLeftClose className="size-[18px] in-data-[sidebar=collapsed]:hidden" />
+              <PanelLeftOpen className="hidden size-[18px] in-data-[sidebar=collapsed]:block" />
+            </IconButton>
             {current && (
               <motion.div key={current.href} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                 className="flex min-w-0 items-center gap-3">
@@ -87,6 +93,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
                 <BookOpenText className="size-4" /> API
               </a>
               <ThemeToggle />
+              {hydrated && user && <SignOutButton />}
             </div>
           </header>
 
@@ -126,11 +133,10 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
       </div>
 
       <div className="border-t border-line p-3">
-        <div className={cx("flex items-center gap-2 transition-opacity", hydrated ? "opacity-100" : "opacity-0",
-          "in-data-[sidebar=collapsed]:lg:flex-col")}>
+        <div className={cx("flex items-center gap-2 transition-opacity", hydrated ? "opacity-100" : "opacity-0")}>
           {user ? (
             <>
-              <Link href="/account" title="Account" className="flex min-w-0 flex-1 items-center gap-2 rounded-xl hover:bg-surface-2">
+              <Link href="/account" title="Account" className="flex min-w-0 flex-1 items-center gap-2 rounded-xl hover:bg-surface-2 in-data-[sidebar=collapsed]:lg:justify-center">
                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lilac-soft text-sm font-bold uppercase text-lilac">
                   {(user.full_name || user.email)[0]}
                 </span>
@@ -139,19 +145,12 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
                   <span className="block truncate text-xs text-ink-soft">{user.email}</span>
                 </span>
               </Link>
-              <SignOutButton />
             </>
           ) : (
             <Link href={`/login?next=${encodeURIComponent(pathname)}`}
               className="ink-button flex h-9 flex-1 items-center justify-center gap-2 bg-accent px-3 text-sm font-medium text-accent-ink">
               <LogIn className="size-4" /> <span className={hide}>Sign in</span>
             </Link>
-          )}
-          {!mobile && (
-            <IconButton label="Collapse or expand sidebar" onClick={toggleSidebar}>
-              <PanelLeftClose className="size-[18px] in-data-[sidebar=collapsed]:hidden" />
-              <PanelLeftOpen className="hidden size-[18px] in-data-[sidebar=collapsed]:block" />
-            </IconButton>
           )}
         </div>
       </div>
