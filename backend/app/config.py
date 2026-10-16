@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_JWT_SECRET = "dev-insecure-secret-change-me"
@@ -81,9 +81,19 @@ class Settings(BaseSettings):
 
     # Text-to-speech. "mms" = Meta MMS-TTS, whose weights are CC-BY-NC 4.0 (non-commercial);
     # "voxcpm" = VoxCPM2 (Apache-2.0, see below).
-    tts_engine: Literal["mms", "voxcpm"] = "mms"
+    tts_engine: Literal["mms", "voxcpm", "omnivoice"] = "mms"
+    # OmniVoice accepts attribute tags, not free-form prose.
+    tts_omni_voice: Literal[
+        "female, young adult, moderate pitch", "male, young adult, moderate pitch",
+        "female, middle-aged, moderate pitch", "male, middle-aged, low pitch",
+    ] = "female, young adult, moderate pitch"
+    tts_omni_khmer_chars_per_second: float = Field(12.0, ge=6.0, le=20.0)
     tts_model_km: str = "facebook/mms-tts-khm"
     tts_model_en: str = "facebook/mms-tts-eng"
+    # MMS Khmer acoustic/timing variation. Keep model defaults until listening tests
+    # justify a change; smaller duration noise can give steadier narration.
+    tts_km_noise_scale: float = Field(0.667, ge=0.0, le=2.0)
+    tts_km_noise_scale_duration: float = Field(0.8, ge=0.0, le=2.0)
     tts_max_chars: int = 2000
     tts_preload: bool = False
     tts_cache_enabled: bool = True  # reuse audio for text that was already spoken (same speed)
@@ -99,6 +109,11 @@ class Settings(BaseSettings):
     clone_max_chars: int = 500
     clone_ref_min_s: float = 3.0
     clone_ref_max_s: float = 30.0
+    clone_omni_steps: int = Field(48, ge=16, le=64)  # identity-focused generation; TTS keeps its own default
+    clone_cache_enabled: bool = True
+    clone_cache_ttl_s: int = Field(300, ge=0, le=3600)
+    clone_cache_max_entries: int = Field(16, ge=0, le=128)
+    clone_cache_max_bytes: int = Field(16 * 1024 * 1024, ge=0, le=64 * 1024 * 1024)
     clone_max_queue: int = 10  # pending jobs before new requests get 503
     clone_result_ttl_s: int = 3600  # finished jobs and their audio are deleted after this
     clone_preload: bool = False
@@ -131,6 +146,17 @@ class Settings(BaseSettings):
     quota_clone_jobs_user: int = 20  # cloning always needs an account
     max_api_keys_per_user: int = 10
 
+    # Paid plans are opt-in. Prices and payment methods are managed in Stripe.
+    billing_enabled: bool = False
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_pro_price_id: str = ""
+    stripe_api_version: str = "2025-06-30.basil"
+    quota_stt_seconds_pro: int = 18_000
+    quota_tts_chars_pro: int = 250_000
+    quota_clone_jobs_pro: int = 100
+    rate_limit_pro: int = 60
+
     @model_validator(mode="after")
     def _require_real_secret_outside_dev(self):
         if self.env not in ("development", "test") and (
@@ -139,6 +165,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Set BONDETH_JWT_SECRET to a random value of at least 32 characters outside development "
                 "(python3 -c \"import secrets; print(secrets.token_urlsafe(48))\").")
+        if self.billing_enabled:
+            if not all((self.stripe_secret_key, self.stripe_webhook_secret, self.stripe_pro_price_id)):
+                raise ValueError("Billing needs Stripe secret key, webhook secret and Pro price ID.")
+            if self.tts_engine != "voxcpm" or self.clone_engine != "voxcpm":
+                raise ValueError("Paid service requires BONDETH_TTS_ENGINE=voxcpm and BONDETH_CLONE_ENGINE=voxcpm.")
         return self
 
 

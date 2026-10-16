@@ -1,0 +1,30 @@
+# Split deployment on one Docker host, with the same /app/data path on every process.
+# docker compose -f docker-compose.yml -f docker-compose.workers.yml --profile app up -d --build
+# Add docker-compose.gpu.yml BEFORE this file for CUDA.
+services:
+  backend:
+    environment:
+      BONDETH_CLONE_WORKER_ENABLED: "false"
+      BONDETH_STT_WORKER_ENABLED: "false"
+      BONDETH_CLONE_PRELOAD: "false"
+      BONDETH_STT_PRELOAD: "false"
+    # Publish through a reverse proxy, or let Docker allocate a port per replica.
+    ports: !override
+      - "127.0.0.1::8000"
+
+  worker:
+    extends:
+      file: docker-compose.yml
+      service: backend
+    command: ["python", "-m", "app.worker"]
+    ports: !reset []
+    environment:
+      BONDETH_CLONE_WORKER_ENABLED: "false"
+      BONDETH_STT_WORKER_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker", "--check"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 2m

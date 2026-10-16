@@ -280,8 +280,26 @@ async def delete_account(
 
     Needs your password (and a signed-in session, not an API key).
     """
+    user = (await session.scalars(select(User).where(User.id == user.id).with_for_update()
+                                  .execution_options(populate_existing=True))).one()
     if not verify_password(req.password, user.password_hash):
         raise HTTPException(403, "Incorrect password")
+    if user.stripe_customer_id:
+        from app.services.billing import StripeBilling
+        # Do not orphan a recurring charge when deleting its owner.
+        if not settings.stripe_secret_key:
+            raise HTTPException(409, "Billing is unavailable. Contact the operator to cancel your subscription before deleting.")
+        provider = StripeBilling(settings)
+        if user.stripe_checkout_id:
+            checkout = await provider.request("GET", f"checkout/sessions/{user.stripe_checkout_id}")
+            if checkout["status"] == "open":
+                await provider.request("POST", f"checkout/sessions/{user.stripe_checkout_id}/expire")
+            elif checkout["status"] == "complete" and checkout.get("subscription"):
+                user.stripe_subscription_id = checkout["subscription"]
+        if user.stripe_subscription_id:
+            subscription = await provider.subscription(user.stripe_subscription_id)
+            if subscription["status"] not in ("canceled", "incomplete_expired"):
+                await provider.request("DELETE", f"subscriptions/{user.stripe_subscription_id}")
     user_id = user.id
     await session.delete(user)  # rows in other tables go with it (ON DELETE CASCADE)
     await session.commit()

@@ -41,7 +41,8 @@ def test_failed_clone_job_is_refunded_in_per_key_metering(client, env, register)
     ok = post_clone(client, as_key, reference_text="hi").json()
     assert wait_for(client, as_key, ok["job_id"])["status"] == "done"
     env["engine"].fail = True
-    bad = post_clone(client, as_key, reference_text="hi").json()
+    # Exercise actual inference failure, not a successful replay of the earlier WAV.
+    bad = post_clone(client, as_key, reference_text="hi", reuse_cached="false").json()
     assert wait_for(client, as_key, bad["job_id"])["status"] == "failed"
 
     usage = key_usage(client, headers, key["id"])

@@ -28,6 +28,7 @@ from typing import Literal
 
 from redis import Redis
 
+from app.services import queue_storage
 from app.services.job_billing import JobBilling, JobCharge
 from app.services.stt import Segment, SttService
 
@@ -60,6 +61,7 @@ class SttJob:
     language: str  # "auto" | "km" | "en"
     user_id: str = ""  # "" for anonymous jobs, whose unguessable id is the only way in
     charge: str | None = None  # JobCharge JSON: seconds reserved, settled when the job ends
+    priority: bool = False
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     status: JobStatus = "queued"
     error: str | None = None
@@ -80,6 +82,7 @@ class SttJob:
                 kwargs[name] = None
         kwargs["audio_path"] = Path(kwargs["audio_path"])
         kwargs["created_at"] = float(kwargs["created_at"])
+        kwargs["priority"] = kwargs.get("priority") == "True"
         if kwargs.get("finished_at") is not None:
             kwargs["finished_at"] = float(kwargs["finished_at"])
         return cls(**kwargs)
@@ -105,13 +108,9 @@ class SttJobQueue:
         return path
 
     def submit(self, job: SttJob) -> SttJob:
-        if self.pending_count() >= self._max_pending:
+        if not queue_storage.submit(self._redis, QUEUE_KEY, PROCESSING_KEY, job_key(job.id),
+                                    job.to_redis(), self._max_pending, PENDING_TTL_S, job.priority):
             raise QueueFull("The transcription queue is full. Please try again shortly.")
-        with self._redis.pipeline(transaction=True) as pipe:
-            pipe.hset(job_key(job.id), mapping=job.to_redis())
-            pipe.expire(job_key(job.id), PENDING_TTL_S)
-            pipe.lpush(QUEUE_KEY, job.id)
-            pipe.execute()
         return job
 
     def get(self, job_id: str) -> SttJob | None:
@@ -119,23 +118,30 @@ class SttJobQueue:
         return SttJob.from_redis(data) if data else None
 
     def pending_count(self) -> int:
-        return self._redis.llen(QUEUE_KEY) + self._redis.llen(PROCESSING_KEY)
+        return queue_storage.pending(self._redis, QUEUE_KEY, PROCESSING_KEY)
 
     def position(self, job: SttJob) -> int | None:
         """1-based place in line for a queued job; None once it has started."""
-        if job.status != "queued":
-            return None
-        index = self._redis.lpos(QUEUE_KEY, job.id)
-        if index is None:
-            return None
-        return self._redis.llen(QUEUE_KEY) - index + self._redis.llen(PROCESSING_KEY)
+        return queue_storage.position(self._redis, QUEUE_KEY, PROCESSING_KEY, job)
 
     # --- Worker side ---------------------------------------------------------------
 
     def start_worker(self) -> None:
-        self._recover()
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError("Worker is already running")
+        lock = queue_storage.WorkerLock(self._jobs_root)
+        try:
+            self._recover()
+        except BaseException:
+            lock.release()
+            raise
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="stt-worker", daemon=True)
+        def run():
+            try:
+                self._loop()
+            finally:
+                lock.release()
+        self._thread = threading.Thread(target=run, name="stt-worker", daemon=True)
         self._thread.start()
 
     def stop_worker(self, timeout: float = 2.0) -> None:
@@ -144,23 +150,26 @@ class SttJobQueue:
             self._thread.join(timeout)
 
     def _recover(self) -> None:
-        while (job_id := self._redis.lmove(PROCESSING_KEY, QUEUE_KEY, "LEFT", "RIGHT")) is not None:
-            if self._redis.exists(job_key(job_id)):
-                # Start the event stream over: the job runs again from the beginning.
-                self._redis.delete(events_key(job_id))
-                self._redis.hset(job_key(job_id), "status", "queued")
+        while recovered := queue_storage.recover(self._redis, QUEUE_KEY, PROCESSING_KEY, job_key(""), reset_events=True):
+            job_id, queued = recovered
+            if queued:
                 logger.info("Re-queued interrupted transcription job %s", job_id)
 
     def _loop(self) -> None:
         last_sweep = 0.0
+        priority_run = 0
         while not self._stop.is_set():
             try:
                 if time.time() - last_sweep > SWEEP_INTERVAL_S:
                     self.sweep()
                     last_sweep = time.time()
-                job_id = self._redis.blmove(QUEUE_KEY, PROCESSING_KEY, 1, "RIGHT", "LEFT")
-                if job_id is None:
+                selected = self._redis.eval(queue_storage.POP, 3, QUEUE_KEY + ":priority", QUEUE_KEY,
+                                            PROCESSING_KEY, "normal" if priority_run >= 3 else "priority")
+                if selected is None:
+                    self._stop.wait(0.2)
                     continue
+                job_id, source = selected
+                priority_run = priority_run + 1 if source.endswith(":priority") else 0
                 self._process(job_id)
                 self._redis.lrem(PROCESSING_KEY, 1, job_id)
             except Exception:
@@ -197,6 +206,8 @@ class SttJobQueue:
                 "segments": [vars(s) for s in result.segments],
             }
             job.status, job.result = "done", json.dumps(body, ensure_ascii=False)
+            if self._billing and job.user_id:
+                job.transcription_id = self._billing.save_history(job.id, job.user_id, body)
             self._settle(job, math.ceil(result.duration))
             final = ("done", body)
         except Exception as exc:
@@ -204,16 +215,16 @@ class SttJobQueue:
             job.status, job.error = "failed", f"Could not transcribe audio: {exc or exc.__class__.__name__}"
             self._settle(job, 0)
             final = ("error", {"error": job.error})
-        finally:
-            job.finished_at = time.time()
-            shutil.rmtree(job.audio_path.parent, ignore_errors=True)
-            with self._redis.pipeline(transaction=True) as pipe:
-                pipe.hset(job_key(job.id), mapping=job.to_redis())
-                pipe.expire(job_key(job.id), self._ttl_s)
-                pipe.expire(events_key(job.id), self._ttl_s)
-                pipe.execute()
-        # Only after the job record is final: readers of the last event look it up.
-        self._emit(job.id, *final)
+        job.finished_at = time.time()
+        with self._redis.pipeline(transaction=True) as pipe:
+            pipe.hset(job_key(job.id), mapping=job.to_redis())
+            pipe.expire(job_key(job.id), self._ttl_s)
+            event, data = final
+            pipe.xadd(events_key(job.id), {"event": event, "data": json.dumps(data, ensure_ascii=False)})
+            pipe.expire(events_key(job.id), self._ttl_s)
+            pipe.execute()
+        # Keep retry input until the terminal record AND terminal event are durable.
+        shutil.rmtree(job.audio_path.parent, ignore_errors=True)
 
     def _settle(self, job: SttJob, actual: int) -> None:
         """Correct the reservation to what was actually transcribed (0 = refund)."""

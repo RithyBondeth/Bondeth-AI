@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Intro, RequireAuth, errorText } from "@/components/studios/shared";
+import { BillingSettings } from "@/components/studios/BillingSettings";
 import { Badge, Button, Dialog, Field, Input, Panel, PanelHeader, useToast } from "@/components/ui";
 import { api, apiJson, clearSession, type User } from "@/lib/api";
 import { formatDate } from "@/lib/format";
@@ -62,6 +63,7 @@ function Account() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <BillingSettings />
       <Panel>
         <PanelHeader title="Profile" km="ប្រវត្តិរូប" />
         <dl className="divide-y divide-line text-sm">
@@ -158,6 +160,7 @@ function DeleteAccountForm({ user }: { user: User }) {
           <li>your transcription history</li>
           <li>your saved voices and their audio samples</li>
           <li>your API keys (apps using them stop working) and their usage records</li>
+          <li>your paid subscription, if any (canceled before deletion)</li>
         </ul>
       </div>
       <Field label="Your password" hint="To make sure it's really you.">

@@ -14,6 +14,7 @@ from pathlib import Path
 
 # Must be set before the app (and its cached settings) is imported.
 os.environ["BONDETH_ENV"] = "test"
+os.environ["BONDETH_TTS_ENGINE"] = "mms"  # deterministic test baseline, independent of local voice selection
 os.environ["BONDETH_DATABASE_URL"] = os.environ.get(
     "BONDETH_TEST_DATABASE_URL", "postgresql+asyncpg://bondeth:bondeth@localhost:5432/bondeth_test")
 os.environ["BONDETH_REDIS_URL"] = os.environ.get("BONDETH_TEST_REDIS_URL", "redis://localhost:6379/15")
@@ -78,7 +79,7 @@ def infra():
 @pytest.fixture
 def client(infra):
     """A client with the full app lifespan (DB, Redis, queue) on empty test data."""
-    asyncio.run(_run_sql("TRUNCATE users, transcriptions, cloned_voices CASCADE"))
+    asyncio.run(_run_sql("TRUNCATE users, transcriptions, cloned_voices, billing_events CASCADE"))
     sync_redis().flushdb()
     data_dir = get_settings().data_dir
     shutil.rmtree(data_dir, ignore_errors=True)

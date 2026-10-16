@@ -20,6 +20,10 @@
   --teal: #0f9f8f;
   --lilac: #7457ea;
   --rose: #e5484d;
+  /* Doodle people: skin, hair and face features stay readable in both themes. */
+  --skin: #f4c7a3;
+  --hair: #18161f;
+  --face: #18161f;
   --glow-1: rgb(239 125 34 / 0.16);
   --glow-2: rgb(116 87 234 / 0.12);
   --shadow: 0 1px 2px rgb(24 22 31 / 0.04), 0 12px 32px -16px rgb(24 22 31 / 0.18);
@@ -39,6 +43,9 @@
   --teal: #2dd4bf;
   --lilac: #a28bff;
   --rose: #ff6b70;
+  --skin: #e2ac86;
+  --hair: #0b0b10;
+  --face: #18161f;
   --glow-1: rgb(255 148 64 / 0.10);
   --glow-2: rgb(162 139 255 / 0.10);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -20px rgb(0 0 0 / 0.8);
@@ -130,5 +137,16 @@ input[type="range"] {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Doodle lines draw themselves via inline dash styles. The server renders them mid-draw
+   before it can know this setting, so with reduced motion force the finished line here:
+   CSS !important beats the inline styles whatever the JS ends up doing. */
+@media (prefers-reduced-motion: reduce) {
+  .doodle-stroke {
+    opacity: 1 !important;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }

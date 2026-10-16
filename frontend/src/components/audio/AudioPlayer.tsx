@@ -76,7 +76,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
   };
 
   return (
-    <div className={cx("flex items-center rounded-xl bg-surface-2", compact ? "gap-2 p-1.5 pr-2" : "gap-3 p-2.5 pr-3", className)}>
+    <div className={cx("flex min-w-0 items-center rounded-xl bg-surface-2", compact ? "gap-2 p-1.5 pr-2" : "gap-3 p-2.5 pr-3", className)}>
       <audio
         ref={audioRef}
         preload="metadata"
@@ -115,7 +115,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
           if (e.key === "ArrowLeft") el.currentTime = Math.max(0, el.currentTime - 2);
           if (e.key === " ") { e.preventDefault(); toggle(); }
         }}
-        className={cx("flex flex-1 cursor-pointer items-center gap-[2px]", compact ? "h-7" : "h-10")}
+        className={cx("flex min-w-0 flex-1 cursor-pointer items-center gap-[2px] overflow-hidden", compact ? "h-7" : "h-10")}
       >
         {(peaks ?? Array(BAR_COUNT).fill(0.15)).filter((_, i) => !compact || i % 2 === 0).map((p, i, bars) => (
           <motion.span

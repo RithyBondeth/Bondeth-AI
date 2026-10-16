@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.auth import get_current_user, get_optional_user, get_redis
 from app.config import Settings, get_settings
 from app.db import ApiKeyUsage, User
+from app.plans import effective_plan
 
 Quota = Literal["stt_seconds", "tts_chars", "clone_jobs"]
 QUOTAS: tuple[Quota, ...] = ("stt_seconds", "tts_chars", "clone_jobs")
@@ -51,6 +52,7 @@ class Caller:
     signed_in: bool  # gets the account allowance (a verified account)
     api_key_id: uuid.UUID | None = None  # set when the request used a developer API key
     unverified: bool = False  # signed in, but the email isn't confirmed yet
+    plan: str = "free"
 
     @property
     def rate_key(self) -> str:
@@ -60,7 +62,8 @@ class Caller:
     def of(cls, request: Request, user: User | None) -> "Caller":
         if user is not None and user.email_verified:
             api_key = getattr(request.state, "api_key", None)
-            return cls(f"user:{user.id}", True, api_key.id if api_key else None)
+            return cls(f"user:{user.id}", True, api_key.id if api_key else None,
+                       plan=effective_plan(user, get_settings()))
         # Signed out, or not verified yet: limited per IP, so new accounts don't add allowance.
         # Behind a reverse proxy, set uvicorn's FORWARDED_ALLOW_IPS so this is the real client.
         return cls(f"ip:{request.client.host if request.client else 'unknown'}", False, unverified=user is not None)
@@ -131,6 +134,8 @@ class Limits:
                 limit = self._s.rate_limit_cheap
             elif caller.api_key_id:
                 limit = self._s.rate_limit_api_key
+            elif caller.plan == "pro":
+                limit = self._s.rate_limit_pro
             else:
                 limit = self._s.rate_limit_user if caller.signed_in else self._s.rate_limit_anon
         window = window or self._s.rate_limit_window_s
@@ -161,6 +166,8 @@ class Limits:
     def limit(self, quota: Quota, caller: Caller) -> int:
         if quota in SIGNED_IN_ONLY and not caller.signed_in:
             return 0
+        if caller.signed_in and caller.plan == "pro":
+            return getattr(self._s, f"quota_{quota}_pro")
         return getattr(self._s, f"quota_{quota}_{'user' if caller.signed_in else 'anon'}")
 
     async def used(self, quota: Quota, caller: Caller) -> int:

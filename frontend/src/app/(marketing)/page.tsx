@@ -1,4 +1,4 @@
-import { Features, Hero, StudioPreview } from "@/components/marketing";
+import { ClosingCta, Features, Hero, StudioPreview } from "@/components/marketing";
 
 export default function Home() {
   return (
@@ -6,6 +6,7 @@ export default function Home() {
       <Hero />
       <StudioPreview />
       <Features />
+      <ClosingCta />
     </>
   );
 }

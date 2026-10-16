@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
-import { MicDoodle, SparkleDoodle, SpeechBubbleDoodle, TwinVoicesDoodle, WaveformDoodle } from "@/components/doodles";
+import { Logo } from "@/components/Logo";
+import {
+  ListenerDoodle, ReaderDoodle, SparkleDoodle, SpeakerDoodle, SpeechBubbleDoodle, TwinVoicesDoodle, UnlockDoodle, WaveformDoodle,
+} from "@/components/doodles";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button, Field, Input, useToast } from "@/components/ui";
 import { ApiError, login, register } from "@/lib/api";
@@ -52,7 +55,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       km={isLogin ? "ចូលគណនី" : "បង្កើតគណនី"}
       title={isLogin ? "Welcome back" : "Create your account"}
       subtitle={isLogin ? "Sign in to clone voices and keep your transcripts." : "Free. Save voices and your transcription history."}
-      bubble={isLogin ? "ជំរាបសួរ" : "សួស្តី"}
+      bubble={isLogin ? "ជំរាបសួរ" : "ស្វាគមន៍"}
+      art={isLogin ? "clone" : "speaker"}
     >
       <form onSubmit={submit} className="space-y-4">
         {!isLogin && (
@@ -94,21 +98,27 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   );
 }
 
-/** Split-screen frame shared by the sign-in, sign-up and account-recovery pages. */
-export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", children }: {
-  km: string; title: string; subtitle: ReactNode; bubble?: string; children: ReactNode;
+const AUTH_ART = {
+  clone: { Art: TwinVoicesDoodle, label: "Doodle of a person waving at their dashed voice clone" },
+  speaker: { Art: SpeakerDoodle, label: "Doodle of a woman talking into a microphone, her words landing on a card" },
+  key: { Art: UnlockDoodle, label: "Doodle of someone turning a big key in a padlock" },
+  listener: { Art: ListenerDoodle, label: "Doodle of someone relaxing with headphones on" },
+  reader: { Art: ReaderDoodle, label: "Doodle of someone reading an open notebook" },
+};
+
+/** Split-screen frame shared by the sign-in, sign-up and account-recovery pages; each page picks its own character. */
+export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", art = "clone", children }: {
+  km: string; title: string; subtitle: ReactNode; bubble?: string; art?: keyof typeof AUTH_ART; children: ReactNode;
 }) {
+  const { Art, label } = AUTH_ART[art];
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand panel */}
       <div className="dot-grid relative hidden overflow-hidden border-r border-line bg-surface lg:flex lg:flex-col lg:justify-between lg:p-10">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-xl bg-accent-soft"><MicDoodle className="h-7 w-6 text-ink" /></span>
-          <span className="font-bold tracking-tight">Bondeth AI <span className="khmer font-normal text-ink-soft">· បណ្ឌិត</span></span>
-        </Link>
+        <Logo className="self-start" />
         <div className="relative mx-auto w-full max-w-md">
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 100, damping: 16 }}>
-            <TwinVoicesDoodle className="w-full text-ink" label="Doodle of a face and its dashed voice clone" />
+            <Art key={art} className="w-full text-ink" label={label} />
           </motion.div>
           <motion.div className="absolute -top-16 right-0" animate={{ y: [0, -8, 0] }} transition={{ duration: 4, repeat: Infinity }}>
             <SpeechBubbleDoodle className="h-24 w-28 text-ink" text={bubble} />

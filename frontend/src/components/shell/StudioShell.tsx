@@ -7,7 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
-import { MicDoodle, TwinVoicesDoodle } from "@/components/doodles";
+import { TwinVoicesDoodle } from "@/components/doodles";
+import { Logo } from "@/components/Logo";
 import { RecentsProvider } from "@/components/shell/Recents";
 import { UsageMeter } from "@/components/shell/UsageMeter";
 import { useResendVerification } from "@/components/studios/AccountSettings";
@@ -107,15 +108,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center gap-2.5 px-5 in-data-[sidebar=collapsed]:lg:justify-center in-data-[sidebar=collapsed]:lg:px-0">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Bondeth AI home">
-          <motion.span whileHover={{ rotate: -12 }} className="grid size-9 place-items-center rounded-xl bg-accent-soft">
-            <MicDoodle className="h-7 w-6 text-ink" />
-          </motion.span>
-          <span className={cx("leading-tight", hide)}>
-            <span className="block font-bold tracking-tight">Bondeth AI</span>
-            <span className="khmer block text-[11px] leading-none text-ink-soft">បណ្ឌិត</span>
-          </span>
-        </Link>
+        <Logo wordmarkClassName={hide} />
       </div>
 
       <nav className="scroll-thin flex-1 space-y-6 overflow-y-auto px-3 py-4">
@@ -126,7 +119,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
       <UsageMeter className={cx("mx-3 mb-3", hide)} />
 
       <div className={cx("mx-3 mb-3 overflow-hidden rounded-2xl border border-line bg-surface p-4", hide)}>
-        <TwinVoicesDoodle className="h-14 w-28 text-ink" />
+        <TwinVoicesDoodle className="h-16 w-28 text-ink" still />
         <p className="mt-2 text-sm font-medium">Your voice, any words</p>
         <p className="text-xs text-ink-soft">Save a 3-30 s sample once, then clone it from any tool.</p>
         <Link href="/voices" className="mt-2 inline-block text-xs font-medium text-accent hover:underline">Manage voices →</Link>
