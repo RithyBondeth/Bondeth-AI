@@ -95,7 +95,7 @@ function Studio() {
   }, [add, toast]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-6">
         <Editor text={text} setText={setText} max={MAX_CHARS} busy={working} disabled={!ready} onGenerate={submit}
           cta="Clone & speak" busyLabel="Cloning…" />
