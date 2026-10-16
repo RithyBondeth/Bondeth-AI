@@ -4,7 +4,7 @@ import { Check, Copy, KeyRound, Plus, Trash2, TriangleAlert } from "lucide-react
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { UnlockDoodle } from "@/components/doodles";
+import { DeveloperDoodle } from "@/components/doodles";
 import { Intro, RequireAuth, errorText } from "@/components/studios/shared";
 import { Button, Dialog, EmptyState, Field, IconButton, Input, Panel, PanelHeader, useToast } from "@/components/ui";
 import { API_URL, api, apiJson } from "@/lib/api";
@@ -58,8 +58,8 @@ function Keys() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      <div>
+    <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="min-w-0">
         <div className="mb-4 flex items-center gap-3">
           <p className="text-sm text-ink-soft">{keys ? `${keys.length} active` : "Loading…"}</p>
           <Button className="ml-auto" onClick={() => setCreating(true)} icon={<Plus className="size-4" />}>New key</Button>
@@ -69,7 +69,7 @@ function Keys() {
           <div className="space-y-3">{[0, 1].map((k) => <div key={k} className="h-28 animate-pulse rounded-2xl bg-surface" />)}</div>
         ) : keys.length === 0 ? (
           <Panel>
-            <EmptyState doodle={<UnlockDoodle className="h-28 w-40 text-ink" />} title="No API keys yet"
+            <EmptyState doodle={<DeveloperDoodle className="h-32 w-48" />} title="No API keys yet"
               action={<Button onClick={() => setCreating(true)} icon={<Plus className="size-4" />}>Create your first key</Button>}>
               Create a key for each app or bot, so you can see what each one uses and revoke it on its own.
             </EmptyState>
@@ -211,7 +211,7 @@ function QuickStart() {
     { title: "Text to speech", code: `curl ${API_URL}/api/v1/tts \\\n  -H "X-API-Key: $BONDETH_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"text": "សួស្តី"}' -o speech.wav` },
   ];
   return (
-    <Panel className="h-fit">
+    <Panel className="h-fit min-w-0">
       <PanelHeader title="Quick start" km="ចាប់ផ្តើម" />
       <div className="space-y-4 p-5 text-sm">
         {examples.map((ex) => (

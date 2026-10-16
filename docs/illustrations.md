@@ -1,5 +1,7 @@
 # Bondeth AI doodle illustrations
 
+Additional creator, idea-capture, and developer scenes are documented with [their generation prompts and usage](illustrations-use-cases.md).
+
 Created with the built-in image-generation tool. The selected set uses loose black fineliner contours, warm paper fills, simple expressive faces and saffron-orange scribbles. All five PNGs preserve transparency. `next/image` serves responsive optimized versions. Small waveform, headphone, sparkle, arrow and speech-bubble graphics remain native SVGs.
 
 Assets are saved in `frontend/public/illustrations/`:

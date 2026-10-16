@@ -1,3 +1,4 @@
+import { CreativeUses } from "@/components/CreativeUses";
 import { ClosingCta, Features, Hero, StudioPreview } from "@/components/marketing";
 
 export default function Home() {
@@ -6,6 +7,7 @@ export default function Home() {
       <Hero />
       <StudioPreview />
       <Features />
+      <CreativeUses />
       <ClosingCta />
     </>
   );

@@ -12,10 +12,10 @@ const ORANGE = "var(--art-orange)";
 const SPARKLE = "M12 2 Q13 11 22 12 Q13 13 12 22 Q11 13 2 12 Q11 11 12 2 Z";
 
 /** Hand-drawn scenes share one ink-and-saffron style and use responsive image sizes. */
-function Illustration({ name, className, label, hero = false }: Props & { name: string; hero?: boolean }) {
+function Illustration({ name, className, label, hero = false, sizes }: Props & { name: string; hero?: boolean; sizes?: string }) {
   return <Image src={`/illustrations/${name}.png`} alt={label ?? ""}
     width={1448} height={1086} preload={hero}
-    sizes={hero ? "(max-width: 1023px) 90vw, 540px" : "(max-width: 767px) 80vw, 384px"}
+    sizes={sizes ?? (hero ? "(max-width: 1023px) 90vw, 540px" : "(max-width: 767px) 80vw, 384px")}
     className={`illustration-art object-contain ${className ?? ""}`} />;
 }
 
@@ -92,7 +92,7 @@ export function TwinVoicesDoodle(props: Props) {
 }
 
 export function ReaderDoodle(props: Props) {
-  return <Illustration {...props} name="notebook-doodle-v2" />;
+  return <Illustration {...props} name="ideas-doodle" />;
 }
 
 export function UnlockDoodle(props: Props) {
@@ -104,4 +104,18 @@ export function HeroScene({ className }: { className?: string }) {
     <Illustration name="voice-studio-doodle-v2" className="h-auto w-full scale-[1.14]" hero
       label="A hand-drawn Cambodian speaker at a microphone, with an audio speech bubble and notebook page" />
   </div>;
+}
+
+type SceneProps = Props & { sizes?: string };
+
+export function CreatorDoodle(props: SceneProps) {
+  return <Illustration {...props} name="creator-doodle" />;
+}
+
+export function IdeasDoodle(props: SceneProps) {
+  return <Illustration {...props} name="ideas-doodle" />;
+}
+
+export function DeveloperDoodle(props: SceneProps) {
+  return <Illustration {...props} name="developer-doodle" />;
 }

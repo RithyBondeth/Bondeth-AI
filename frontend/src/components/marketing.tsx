@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, AudioLines, Mic, Sparkles } from "lucide-react";
+import { ArrowRight, AudioLines, Check, Mic, Sparkles } from "lucide-react";
 import { motion, useInView, useReducedMotion, type Variants } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Aurora } from "@/components/Aurora";
 import { Logo, LogoMark } from "@/components/Logo";
 import {
-  CurlyArrowDoodle, HeroScene, ListenerDoodle, SparkleDoodle, SpeakerDoodle, SquiggleUnderline, TwinVoicesDoodle,
+  CurlyArrowDoodle, HeroScene, IdeasDoodle, ListenerDoodle, SparkleDoodle, SpeakerDoodle, SquiggleUnderline, TwinVoicesDoodle,
 } from "@/components/doodles";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cx } from "@/components/ui";
@@ -145,7 +145,9 @@ export function Hero() {
           </motion.div>
           <CurlyArrowDoodle className="hidden h-12 w-16 -rotate-12 text-ink sm:block" />
         </motion.div>
-        <motion.p variants={rise} className="mt-6 text-sm leading-relaxed text-ink-soft">Your words. Your language. Your little studio.</motion.p>
+        <motion.ul variants={rise} className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-soft">
+          {["Khmer & English", "No installation needed"].map((label) => <li key={label} className="flex items-center gap-1.5"><Check aria-hidden className="size-3.5 text-accent" />{label}</li>)}
+        </motion.ul>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
@@ -188,7 +190,7 @@ export function StudioPreview() {
     <motion.section ref={ref} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
       onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
-      className="studio-preview paper-panel relative mx-auto mb-10 mt-6 overflow-hidden bg-surface">
+      aria-label="Interactive studio preview" className="studio-preview paper-panel relative mx-auto mb-10 mt-6 overflow-hidden bg-surface">
       <div className="flex h-10 items-center gap-1.5 border-b border-line px-4">
         {[0, 1, 2].map((n) => <span key={n} className="size-2 rounded-full border border-ink/60 bg-accent/60" />)}
         <span className="mx-auto text-xs text-ink-soft">A peek inside your studio / {tool}</span>
@@ -338,7 +340,7 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section id="tools" className="pb-20 pt-16">
+    <section id="tools" className="pb-16 pt-16 sm:pb-20">
       <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-9 max-w-xl">
         <p className="khmer text-sm font-medium text-accent">សំឡេងតែមួយ ឧបករណ៍បី</p>
         <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Three tools, one studio</h2>
@@ -405,7 +407,7 @@ export function ClosingCta() {
             </motion.div>
           </div>
         </div>
-        <TwinVoicesDoodle className="mx-auto w-full max-w-sm text-ink" label="A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" />
+        <IdeasDoodle className="mx-auto w-full max-w-sm" label="A doodle of someone turning a spoken idea into notes" />
       </div>
     </motion.section>
   );
