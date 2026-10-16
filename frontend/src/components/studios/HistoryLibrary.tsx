@@ -111,17 +111,17 @@ function Row({ item, onDelete }: { item: Transcription; onDelete: () => void }) 
 
   return (
     <motion.li layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
-      className="group flex gap-4 overflow-hidden px-5 py-4 transition-colors hover:bg-surface-2/60">
-      <div className="min-w-0 flex-1">
+      className="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 overflow-hidden px-5 py-4 transition-colors hover:bg-surface-2/60">
+      <div className="contents">
         <p className={cx("line-clamp-2", khmer && "khmer")}>{item.transcribed_text}</p>
-        <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-soft">
+        <div className="col-span-2 row-start-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
           <Badge tone={khmer ? "accent" : "teal"}>{LANG_LABEL[item.language_code] ?? item.language_code}</Badge>
           {item.audio_duration_seconds != null && <span>{formatSeconds(item.audio_duration_seconds)}</span>}
           <span>·</span>
-          <span>{formatDate(item.created_at)}</span>
+          <span className="whitespace-nowrap">{formatDate(item.created_at)}</span>
         </div>
       </div>
-      <div className="flex shrink-0 items-start gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+      <div className="col-start-2 row-start-1 flex items-start gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
         <IconButton label="Copy" onClick={async () => {
           await navigator.clipboard.writeText(item.transcribed_text);
           setCopied(true);
