@@ -42,7 +42,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <Aurora />
       <div className="flex min-h-dvh">
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-line bg-glass backdrop-blur-xl transition-[width] duration-300 in-data-[sidebar=collapsed]:w-[72px] lg:block">
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r-[1.5px] border-frame bg-surface transition-[width] duration-300 in-data-[sidebar=collapsed]:w-[72px] lg:block">
           <SidebarContent pathname={pathname} />
         </aside>
 
@@ -65,7 +65,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </AnimatePresence>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-glass px-4 backdrop-blur-xl sm:px-6">
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-paper px-4 sm:px-6">
             <IconButton label="Open menu" onClick={() => setDrawer(true)} className="lg:hidden">
               <Menu className="size-5" />
             </IconButton>
@@ -118,7 +118,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
 
       <UsageMeter className={cx("mx-3 mb-3", hide)} />
 
-      <div className={cx("mx-3 mb-3 overflow-hidden rounded-2xl border border-line bg-surface p-4", hide)}>
+      <div className={cx("mx-3 mb-3 overflow-hidden rounded-xl border border-dashed border-line bg-accent-soft/30 p-4", hide)}>
         <TwinVoicesDoodle className="h-16 w-28 text-ink" still />
         <p className="mt-2 text-sm font-medium">Your voice, any words</p>
         <p className="text-xs text-ink-soft">Save a 3-30 s sample once, then clone it from any tool.</p>
@@ -143,7 +143,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
             </>
           ) : (
             <Link href={`/login?next=${encodeURIComponent(pathname)}`}
-              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-3 text-sm font-medium text-accent-ink">
+              className="ink-button flex h-9 flex-1 items-center justify-center gap-2 bg-accent px-3 text-sm font-medium text-accent-ink">
               <LogIn className="size-4" /> <span className={hide}>Sign in</span>
             </Link>
           )}
@@ -173,7 +173,7 @@ function NavSection({ title, items, pathname, hide, locked }: {
 }) {
   return (
     <div>
-      <p className={cx("mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-ink-faint", hide)}>{title}</p>
+      <p className={cx("mb-1.5 px-3 text-xs font-medium tracking-wide text-ink-soft", hide)}>{title}</p>
       <ul className="space-y-0.5">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -184,7 +184,7 @@ function NavSection({ title, items, pathname, hide, locked }: {
                   "in-data-[sidebar=collapsed]:lg:justify-center",
                   active ? "text-ink" : "text-ink-soft hover:bg-surface-2 hover:text-ink")}>
                 {active && (
-                  <motion.span layoutId="sidebar-active" className="absolute inset-0 rounded-xl bg-accent-soft"
+                  <motion.span layoutId="sidebar-active" className="absolute inset-0 rounded-lg border border-ink/20 bg-accent-soft"
                     transition={{ type: "spring", stiffness: 420, damping: 34 }} />
                 )}
                 <item.icon className={cx("relative size-[18px] shrink-0", active && "text-accent")} />

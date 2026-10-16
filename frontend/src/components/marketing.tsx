@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, AudioLines, Mic, Sparkles } from "lucide-react";
-import { motion, useInView, useMotionValue, useReducedMotion, useSpring, useTransform, type Variants } from "motion/react";
+import { motion, useInView, useReducedMotion, type Variants } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -17,8 +17,8 @@ import { useHydrated, useUser } from "@/lib/hooks";
 
 const stagger: Variants = { hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } } };
 const rise: Variants = {
-  hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", stiffness: 160, damping: 22 } },
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 160, damping: 22 } },
 };
 
 export function MarketingFrame({ children }: { children: ReactNode }) {
@@ -27,8 +27,9 @@ export function MarketingFrame({ children }: { children: ReactNode }) {
   return (
     <>
       <Aurora />
-      <header className="sticky top-0 z-40 border-b border-line/60 bg-glass backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+      <a href="#main-content" className="skip-link ink-button">Skip to content</a>
+      <header className="marketing-header sticky top-0 z-40">
+        <div className="mx-auto flex h-18 max-w-6xl items-center gap-6 px-4 sm:px-6">
           <Logo />
           <nav className="hidden items-center gap-1 text-sm text-ink-soft md:flex">
             <Link href="/stt" className="rounded-lg px-3 py-2 hover:text-ink">Speech to Text</Link>
@@ -39,14 +40,14 @@ export function MarketingFrame({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <span className={cx("flex items-center gap-2 transition-opacity", hydrated ? "opacity-100" : "opacity-0")}>
               {!user && <Link href="/login" className="hidden rounded-xl px-3 py-2 text-sm font-medium hover:bg-surface-2 sm:block">Sign in</Link>}
-              <Link href="/stt" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-ink px-4 text-sm font-medium text-paper transition-transform hover:-translate-y-px">
+              <Link href="/stt" className="ink-button inline-flex h-9 items-center gap-1.5 bg-ink px-4 text-sm font-medium text-paper transition-transform hover:-translate-y-px">
                 Open studio <ArrowRight className="size-4" />
               </Link>
             </span>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 sm:px-6">{children}</main>
+      <main id="main-content" className="mx-auto max-w-6xl px-4 sm:px-6">{children}</main>
       <Footer />
     </>
   );
@@ -73,7 +74,7 @@ const FOOTER_LINKS: { title: string; km: string; links: { label: string; href: s
 
 function Footer() {
   return (
-    <footer className="mt-24 border-t border-line">
+    <footer className="mt-24 border-t-2 border-dashed border-line">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div className="space-y-4">
           <Logo />
@@ -108,46 +109,47 @@ function Footer() {
 
 export function Hero() {
   return (
-    <section className="grid items-center gap-12 pb-12 pt-14 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+    <section className="grid items-center gap-8 pb-10 pt-12 sm:gap-12 sm:pt-16 lg:min-h-[600px] lg:grid-cols-[1fr_1.05fr] lg:gap-6 lg:pb-12 lg:pt-16">
       <motion.div variants={stagger} initial="hidden" animate="visible">
         <motion.p variants={rise}
-          className="khmer mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1 text-sm shadow-panel">
+          className="marker-label khmer mb-5 inline-flex items-center gap-2.5 text-xs font-medium">
           <SparkleDoodle className="size-4" /> បណ្ឌិត AI · Khmer &amp; English voice studio
         </motion.p>
-        <motion.h1 variants={rise} className="text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl lg:text-7xl">
+        <motion.h1 variants={rise} className="font-sans text-5xl font-bold leading-[1.08] tracking-[-0.04em] sm:text-6xl lg:text-[4.25rem]">
           Speak Khmer.
           <br />
           <span className="relative inline-block">
-            <span className="relative z-10 bg-gradient-to-r from-accent to-lilac bg-clip-text text-transparent">Be heard.</span>
-            <SquiggleUnderline className="absolute -bottom-2 left-0 h-5 w-full" />
+            <span className="relative z-10 text-ink">Be heard.</span>
+            <SquiggleUnderline className="absolute -bottom-1 left-0 h-5 w-full" />
           </span>
         </motion.h1>
-        <motion.p variants={rise} className="khmer mt-7 text-xl text-ink-soft">
+        <motion.p variants={rise} className="khmer mt-7 max-w-lg text-lg text-ink-soft">
           និយាយ ហើយឲ្យ AI សរសេរ អាន និងចម្លងសំឡេងជំនួសអ្នក។
         </motion.p>
-        <motion.p variants={rise} className="mt-3 max-w-lg text-lg text-ink-soft">
+        <motion.p variants={rise} className="mt-3 max-w-[28rem] text-base leading-relaxed text-ink-soft">
           Transcribe speech, turn text into natural speech, and clone a voice from a short clip.
           Built for Khmer, fluent in English, free and open source.
         </motion.p>
         <motion.div variants={rise} className="mt-9 flex flex-wrap items-center gap-3">
           <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
             <Link href="/stt"
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-accent px-6 font-medium text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_12px_28px_-10px_var(--accent)]">
+              className="ink-button inline-flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-ink transition-colors hover:brightness-105">
               Start talking <ArrowRight className="size-5" />
             </Link>
           </motion.div>
           <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
-            <Link href="/tts" className="inline-flex h-12 items-center rounded-xl border border-line bg-surface px-6 font-medium shadow-panel">
+            <Link href="/tts" className="ink-button inline-flex h-12 items-center bg-surface px-6 font-medium">
               Try text to speech
             </Link>
           </motion.div>
-          <CurlyArrowDoodle className="hidden h-12 w-16 -rotate-12 text-ink-faint sm:block" />
+          <CurlyArrowDoodle className="hidden h-12 w-16 -rotate-12 text-ink sm:block" />
         </motion.div>
+        <motion.p variants={rise} className="mt-6 text-sm leading-relaxed text-ink-soft">Your words. Your language. Your little studio.</motion.p>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 90, damping: 18, delay: 0.15 }}>
-        <HeroScene className="mx-auto w-full max-w-[520px] text-ink" />
+        <HeroScene className="mx-auto w-full max-w-[540px]" />
       </motion.div>
     </section>
   );
@@ -185,10 +187,10 @@ export function StudioPreview() {
     <motion.section ref={ref} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
       onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
-      className="relative mx-auto my-10 overflow-hidden rounded-3xl border border-line bg-surface shadow-panel">
+      className="studio-preview paper-panel relative mx-auto mb-10 mt-6 overflow-hidden bg-surface">
       <div className="flex h-10 items-center gap-1.5 border-b border-line px-4">
-        {["bg-rose", "bg-accent", "bg-teal"].map((c) => <span key={c} className={`size-2.5 rounded-full ${c} opacity-70`} />)}
-        <span className="mx-auto rounded-md bg-surface-2 px-3 py-0.5 text-xs text-ink-faint">bondeth.ai/{tool}</span>
+        {[0, 1, 2].map((n) => <span key={n} className="size-2 rounded-full border border-ink/60 bg-accent/60" />)}
+        <span className="mx-auto text-xs text-ink-soft">A peek inside your studio / {tool}</span>
       </div>
       <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[200px_1fr]">
         <div className="flex flex-col gap-4 border-r border-line p-2 sm:p-3">
@@ -215,7 +217,7 @@ export function StudioPreview() {
             })}
           </div>
         </div>
-        <div className="dot-grid relative grid min-h-72 min-w-0 place-items-center p-4 sm:p-8">
+        <div className="relative grid min-h-72 min-w-0 place-items-center p-4 sm:p-8">
           {/* Keyed so each tool fades in fresh; no exit wait, so switching is instant. */}
           <motion.div key={tool} className="flex w-full min-w-0 max-w-md flex-col items-center gap-5"
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
@@ -263,7 +265,7 @@ function SttMock({ live }: { live: boolean }) {
           <motion.span key={r} className="absolute inset-0 rounded-full border-2 border-accent"
             initial={{ scale: 1, opacity: 0 }} animate={{ scale: [1, 1.9], opacity: [0.5, 0] }} transition={{ duration: 2, repeat: Infinity, delay: r }} />
         ))}
-        <span className="grid size-16 place-items-center rounded-full bg-accent text-white shadow-[0_14px_30px_-10px_var(--accent)]">
+        <span className="ink-button grid size-16 place-items-center bg-accent text-accent-ink">
           <Mic className="size-7" />
         </span>
       </div>
@@ -290,7 +292,7 @@ function TtsMock({ live }: { live: boolean }) {
         <p className="mt-1 text-sm text-ink-soft">Hello! The price is 12,500 riel.</p>
       </div>
       <div className="flex w-full items-center gap-3 rounded-xl border border-line bg-surface p-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-teal text-white">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
           <AudioLines className="size-4" />
         </span>
         <Bars count={26} live={live} progress={progress} />
@@ -304,16 +306,16 @@ function CloneMock({ live }: { live: boolean }) {
     <>
       <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
         <div className="flex items-center gap-2 rounded-xl border border-line bg-surface p-2.5 pr-4">
-          <span className="grid size-9 place-items-center rounded-full bg-lilac-soft text-sm font-bold text-lilac">S</span>
+          <span className="grid size-9 place-items-center rounded-full bg-accent-soft text-sm font-bold text-ink">S</span>
           <span className="text-left text-sm"><span className="block font-medium">Sokha</span><span className="text-xs text-ink-faint">12 s sample</span></span>
         </div>
         <ArrowRight className="size-5 shrink-0 rotate-90 text-ink-faint sm:rotate-0" />
-        <div className="flex items-center gap-2 rounded-xl border border-dashed border-lilac bg-surface p-2.5 pr-4">
-          <span className="grid size-9 place-items-center rounded-full border border-dashed border-lilac text-sm font-bold text-lilac">S</span>
+        <div className="flex items-center gap-2 rounded-xl border border-dashed border-ink bg-surface p-2.5 pr-4">
+          <span className="grid size-9 place-items-center rounded-full border border-dashed border-ink text-sm font-bold text-ink">S</span>
           <span className="text-left text-sm"><span className="block font-medium">Clone</span><span className="text-xs text-ink-faint">Any text</span></span>
         </div>
       </div>
-      <Bars count={28} live={live} color="bg-lilac/70" />
+      <Bars count={28} live={live} color="bg-accent/80" />
       <p className="khmer w-full rounded-xl border border-line bg-surface px-4 py-3 text-center">
         អរុណសួស្តី! នេះជាសំឡេងរបស់ខ្ញុំ<Caret live={live} />
       </p>
@@ -322,41 +324,45 @@ function CloneMock({ live }: { live: boolean }) {
 }
 
 const FEATURES = [
-  { href: "/stt", title: "Speech to Text", km: "សំឡេង → អក្សរ", glow: "var(--accent)", tint: "bg-accent-soft/60",
+  { href: "/stt", title: "Speech to Text", km: "សំឡេង → អក្សរ",
     body: "Record or upload Khmer or English. Khmer comes back as clean, editable text.",
-    doodle: <SpeakerDoodle className="h-40 w-full text-ink" label="Doodle of a woman talking into a microphone, her words landing on a card" /> },
-  { href: "/tts", title: "Text to Speech", km: "អក្សរ → សំឡេង", glow: "var(--teal)", tint: "bg-teal-soft/60",
+    doodle: <SpeakerDoodle className="h-48 w-full" label="A Cambodian woman speaking into a studio microphone" /> },
+  { href: "/tts", title: "Text to Speech", km: "អក្សរ → សំឡេង",
     body: "Type in Khmer, English or both. Prices, dates and percentages are read in full.",
-    doodle: <ListenerDoodle className="h-40 w-full text-ink" label="Doodle of someone sitting cross-legged, listening on headphones" /> },
-  { href: "/clone", title: "Voice Clone", km: "ចម្លងសំឡេង", glow: "var(--lilac)", tint: "bg-lilac-soft/60",
+    doodle: <ListenerDoodle className="h-48 w-full" label="A Cambodian man listening with headphones" /> },
+  { href: "/clone", title: "Voice Clone", km: "ចម្លងសំឡេង",
     body: "Save a 3-30 second sample with consent, then make that voice say anything.",
-    doodle: <TwinVoicesDoodle className="h-40 w-full text-ink" label="Doodle of a person waving at their dashed voice clone" /> },
+    doodle: <TwinVoicesDoodle className="h-48 w-full" label="A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" /> },
 ];
 
 export function Features() {
   return (
-    <section className="py-16">
-      <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-12 text-center">
+    <section id="tools" className="pb-20 pt-16">
+      <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-9 max-w-xl">
         <p className="khmer text-sm font-medium text-accent">សំឡេងតែមួយ ឧបករណ៍បី</p>
-        <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Three tools, one studio</h2>
+        <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Three tools, one studio</h2>
+        <p className="mt-3 text-sm leading-relaxed text-ink-soft">From your first word to the final recording. Find the right tool for what you want to make.</p>
       </motion.div>
       <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}
-        className="grid gap-5 md:grid-cols-3">
-        {FEATURES.map((f) => (
-          <motion.div key={f.href} variants={rise}>
-            <SpotlightCard href={f.href} glow={f.glow}>
-              <div className={cx("flex h-48 items-center justify-center overflow-hidden rounded-xl p-3", f.tint)}>
+        className="grid gap-8 md:grid-cols-3">
+        {FEATURES.map((f, index) => (
+          <motion.div key={f.href} variants={rise} className="feature-paper paper-panel">
+            <PaperCard href={f.href}>
+              <div className="flex h-52 items-center justify-center overflow-hidden border-b border-dashed border-line p-2">
                 <motion.div className="w-full" whileHover={{ scale: 1.04 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
                   {f.doodle}
                 </motion.div>
               </div>
-              <p className="khmer mt-5 text-sm text-ink-soft">{f.km}</p>
-              <h3 className="text-xl font-bold">{f.title}</h3>
-              <p className="mt-2 text-sm text-ink-soft">{f.body}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+              <div className="mt-5 flex items-center justify-between gap-2">
+                <p className="khmer text-xs text-ink-soft">{f.km}</p>
+                <span className="text-xs tabular-nums text-ink-soft" aria-hidden>0{index + 1}</span>
+              </div>
+              <h3 className="mt-2 text-xl font-bold tracking-tight">{f.title}</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{f.body}</p>
+              <span className="mt-6 inline-flex items-center gap-2 border-t border-line pt-4 text-xs font-medium">
                 Open <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
               </span>
-            </SpotlightCard>
+            </PaperCard>
           </motion.div>
         ))}
       </motion.div>
@@ -364,30 +370,11 @@ export function Features() {
   );
 }
 
-/** A card with a soft coloured spotlight that follows the pointer and a gentle tilt. */
-function SpotlightCard({ href, glow, children }: { href: string; glow: string; children: ReactNode }) {
-  const x = useMotionValue(0.5);
-  const y = useMotionValue(0.5);
-  const rotateX = useSpring(useTransform(y, [0, 1], [4, -4]), { stiffness: 200, damping: 20 });
-  const rotateY = useSpring(useTransform(x, [0, 1], [-4, 4]), { stiffness: 200, damping: 20 });
-  const background = useTransform([x, y], ([px, py]: number[]) =>
-    `radial-gradient(320px circle at ${px * 100}% ${py * 100}%, color-mix(in oklab, ${glow} 14%, transparent), transparent 70%)`);
-
-  return (
-    <motion.div style={{ rotateX, rotateY, transformPerspective: 1000 }} whileHover={{ y: -4 }}
-      onPointerMove={(e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        x.set((e.clientX - r.left) / r.width);
-        y.set((e.clientY - r.top) / r.height);
-      }}
-      onPointerLeave={() => { x.set(0.5); y.set(0.5); }}
-      className="relative h-full">
-      <Link href={href} className="group relative block h-full overflow-hidden rounded-2xl border border-line bg-surface p-5 shadow-panel">
-        <motion.span aria-hidden className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ background }} />
-        <span className="relative block">{children}</span>
-      </Link>
-    </motion.div>
-  );
+/** Paper sheets keep the illustration, copy, and action together. */
+function PaperCard({ href, children }: { href: string; children: ReactNode }) {
+  return <Link href={href} className="group flex h-full flex-col rounded-2xl p-5 transition-colors hover:bg-accent-soft/20">
+    {children}
+  </Link>;
 }
 
 /** Closing call to action, so the page ends on something to do. */
@@ -395,29 +382,29 @@ export function ClosingCta() {
   return (
     <motion.section initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
-      className="relative overflow-hidden rounded-3xl border border-line bg-surface p-8 shadow-panel sm:p-12">
+      className="paper-panel relative overflow-hidden bg-accent-soft/40 p-7 sm:p-12">
       <div className="grid items-center gap-8 md:grid-cols-[1.2fr_1fr]">
         <div>
           <p className="khmer text-sm font-medium text-accent">សំឡេងរបស់អ្នក ជាភាសារបស់អ្នក</p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Your voice, in your language.</h2>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Your voice, in your language.</h2>
           <p className="mt-3 max-w-md text-ink-soft">
             No install, no credit card. Open the studio and say something in Khmer — the text appears as you talk.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
               <Link href="/stt"
-                className="inline-flex h-12 items-center gap-2 rounded-xl bg-accent px-6 font-medium text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_12px_28px_-10px_var(--accent)]">
+                className="ink-button inline-flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-ink transition-colors hover:brightness-105">
                 Start talking <ArrowRight className="size-5" />
               </Link>
             </motion.div>
             <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
-              <Link href="/register" className="inline-flex h-12 items-center rounded-xl border border-line bg-surface px-6 font-medium hover:bg-surface-2">
+              <Link href="/register" className="ink-button inline-flex h-12 items-center bg-surface px-6 font-medium hover:bg-surface-2">
                 Create a free account
               </Link>
             </motion.div>
           </div>
         </div>
-        <TwinVoicesDoodle className="mx-auto w-full max-w-sm text-ink" label="Doodle of a person waving at their dashed voice clone" />
+        <TwinVoicesDoodle className="mx-auto w-full max-w-sm text-ink" label="A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" />
       </div>
     </motion.section>
   );
