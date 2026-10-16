@@ -51,6 +51,15 @@ def test_speed_becomes_a_style_hint(speed, style):
     assert voxcpm.style_for_speed(speed) == style
 
 
+def test_missing_voxcpm_dependency_has_installation_instructions(monkeypatch):
+    import sys
+    from app.services.errors import EngineUnavailable
+    monkeypatch.setattr(voxcpm, "_model", None)
+    monkeypatch.setitem(sys.modules, "voxcpm", None)
+    with pytest.raises(EngineUnavailable, match="requirements-voxcpm.txt"):
+        voxcpm.load_model(get_settings())
+
+
 def test_clone_uses_reference_and_transcript(fake_model, tmp_path):
     vox = voxcpm.VoxCpm(get_settings())
     ref = tmp_path / "ref.wav"
@@ -72,6 +81,31 @@ def test_house_voice_is_designed_once(fake_model):
     assert sf.info(path).samplerate == 48_000
     assert voxcpm.VoxCpm(get_settings()).house_voice()[0] == path
     assert len(fake_model.calls) == 1
+
+
+def test_tts_and_clone_wrappers_serialize_the_shared_model(fake_model, tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    import time
+
+    active, maximum = 0, 0
+    counter_lock = threading.Lock()
+    generate = fake_model.generate
+    def guarded(**kwargs):
+        nonlocal active, maximum
+        with counter_lock:
+            active += 1
+            maximum = max(maximum, active)
+        time.sleep(0.02)
+        result = generate(**kwargs)
+        with counter_lock:
+            active -= 1
+        return result
+    monkeypatch.setattr(fake_model, "generate", guarded)
+    wrappers = [voxcpm.VoxCpm(get_settings()), voxcpm.VoxCpm(get_settings())]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda v: v.clone("hello", tmp_path / "ref.wav", "reference"), wrappers))
+    assert maximum == 1
 
 
 def test_tts_keeps_mixed_scripts_together_and_speaks_in_the_house_voice(fake_model, voxcpm_engines):

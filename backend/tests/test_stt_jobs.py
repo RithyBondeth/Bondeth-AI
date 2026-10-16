@@ -176,6 +176,21 @@ def test_unreadable_audio_and_bad_extension(client, env):
     assert not root.exists() or list(root.iterdir()) == []
 
 
+def test_job_saves_history_without_result_reader(client, env, register):
+    owner = register()
+    job = submit(client, headers=owner).json()
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        stored = env["queue"].get(job["job_id"])
+        if stored.status == "done":
+            break
+        time.sleep(0.02)
+    assert stored.status == "done" and stored.transcription_id
+    # No status/SSE reader performed the insert.
+    history = client.get("/api/v1/transcriptions", headers=owner).json()
+    assert [t["id"] for t in history["items"]] == [stored.transcription_id]
+
+
 def test_queue_full(client, env):
     env["queue"].stop_worker()
     full = SttJobQueue(sync_redis(), env["stt"], get_settings().data_dir / "stt_jobs", max_pending=1, ttl_s=60)

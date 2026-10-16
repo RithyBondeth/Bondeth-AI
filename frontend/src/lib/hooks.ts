@@ -19,7 +19,9 @@ export function useUser(): User | null {
 
 /** Today's usage and allowances; refetched on sign-in/out and after each metered request. */
 export function useUsage(): Usage | null {
-  const userId = useUser()?.id;
+  const user = useUser();
+  const userId = user?.id;
+  const verified = user?.email_verified;
   const [usage, setUsage] = useState<Usage | null>(null);
   useEffect(() => {
     let active = true;
@@ -30,6 +32,6 @@ export function useUsage(): Usage | null {
       active = false;
       off();
     };
-  }, [userId]);
+  }, [userId, verified]);
   return usage;
 }

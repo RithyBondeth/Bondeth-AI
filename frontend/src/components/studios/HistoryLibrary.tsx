@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { NotebookDoodle } from "@/components/doodles";
+import { ReaderDoodle } from "@/components/doodles";
 import { Intro, RequireAuth, errorText } from "@/components/studios/shared";
 import { Badge, Button, EmptyState, IconButton, Panel, Segmented, cx, useToast } from "@/components/ui";
 import { api, apiJson } from "@/lib/api";
@@ -77,7 +77,7 @@ function Library() {
         {items === null ? (
           <div className="space-y-px p-2">{[0, 1, 2, 3].map((k) => <div key={k} className="h-20 animate-pulse rounded-xl bg-surface-2" />)}</div>
         ) : items.length === 0 ? (
-          <EmptyState doodle={<NotebookDoodle className="h-24 w-28 text-ink" />} title="No transcripts yet"
+          <EmptyState doodle={<ReaderDoodle className="h-28 w-40 text-ink" />} title="No transcripts yet"
             action={<Link href="/stt" className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink">Transcribe something</Link>}>
             Transcripts you make in Speech to Text will show up here.
           </EmptyState>

@@ -59,6 +59,7 @@ export type CloneJob = {
 export type QuotaName = "stt_seconds" | "tts_chars" | "clone_jobs";
 
 export type Usage = {
+  plan: "free" | "pro";
   signed_in: boolean;
   account: "none" | "unverified" | "verified";
   resets_at: string;

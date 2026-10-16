@@ -1,0 +1,23 @@
+# Apply last, after the base, GPU, and split-worker files.
+services:
+  worker:
+    build:
+      context: ./backend
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+        WITH_VOXCPM: "true"
+    image: bondeth-ai/backend:gpu
+    environment:
+      BONDETH_STT_DEVICE: cuda
+      BONDETH_STT_COMPUTE_TYPE: float16
+      BONDETH_STT_KM_COMPUTE_TYPE: int8_float16
+      BONDETH_CLONE_DEVICE: cuda
+      BONDETH_VOXCPM_DEVICE: cuda
+      BONDETH_STT_MAX_CONCURRENCY: "2"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

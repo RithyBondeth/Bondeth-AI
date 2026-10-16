@@ -143,6 +143,26 @@ def test_missing_transcript_is_filled_by_khmer_stt(client, env, register):
     assert (body["reference_text"], body["reference_text_source"]) == ("ខ្ញុំស្រលាញ់ភាសាខ្មែរ", "transcribed")
 
 
+def test_repeat_jobs_reuse_private_audio_and_allow_a_fresh_take(client, env, register):
+    owner, other = register("owner@example.com"), register("other@example.com")
+    def run(headers, **data):
+        response = post_clone(client, headers, reference_text="exact sample words", **data)
+        assert response.status_code == 202
+        return wait_for(client, headers, response.json()["job_id"])
+    first, repeated = run(owner), run(owner)
+    assert first["status"] == repeated["status"] == "done"
+    assert not first["cache_hit"] and repeated["cache_hit"]
+    assert len(env["engine"].calls) == 1
+    assert client.get(first["audio_url"], headers=owner).content == client.get(repeated["audio_url"], headers=owner).content
+    assert not run(owner, reuse_cached="false")["cache_hit"]
+    assert len(env["engine"].calls) == 2
+    assert not run(other)["cache_hit"] and len(env["engine"].calls) == 3
+    assert client.get(repeated["audio_url"], headers=other).status_code == 404
+    # Reuse is computational, not a quota bypass or a permission shortcut.
+    assert client.get("/api/v1/usage", headers=owner).json()["quotas"]["clone_jobs"]["used"] == 3
+    assert post_clone(client, owner, reference_text="exact sample words", consent="false").status_code == 403
+
+
 def test_silent_reference_fails_cleanly(client, env, register):
     env["stt"].text = ""
     headers = register()

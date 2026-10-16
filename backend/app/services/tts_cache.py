@@ -16,7 +16,7 @@ from redis.asyncio import Redis
 
 from app.config import Settings
 
-CACHE_FORMAT = 1  # bump to invalidate every entry, e.g. if the WAV encoding changes
+CACHE_FORMAT = 2  # phrasing, edge fades and bounded whole-utterance mastering
 
 
 class TtsCache:
@@ -29,10 +29,18 @@ class TtsCache:
         return self._s.tts_cache_enabled
 
     def key(self, chunks: list[tuple[str, str]], speed: float) -> str:
-        if self._s.tts_engine == "voxcpm":
+        if self._s.tts_engine == "omnivoice":
+            from app.services.omni_tts import house_path
+            path = house_path(self._s)
+            # Regenerating/removing a synthetic house voice must not reuse old audio.
+            fingerprint = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+            engine = ["omnivoice", self._s.clone_model, self._s.clone_model_revision,
+                      self._s.tts_omni_voice, self._s.tts_omni_khmer_chars_per_second, fingerprint]
+        elif self._s.tts_engine == "voxcpm":
             engine = ["voxcpm", self._s.voxcpm_model_revision, self._s.voxcpm_house_voice]
         else:
-            engine = ["mms", self._s.tts_model_km, self._s.tts_model_en]
+            engine = ["mms", self._s.tts_model_km, self._s.tts_model_en,
+                      self._s.tts_km_noise_scale, self._s.tts_km_noise_scale_duration]
         identity = [CACHE_FORMAT, *engine, round(speed, 3), chunks]
         digest = hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
         return f"tts:cache:{digest}"

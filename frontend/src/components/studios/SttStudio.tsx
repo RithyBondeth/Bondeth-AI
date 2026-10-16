@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
-import { MicDoodle, NotebookDoodle, WaveformDoodle } from "@/components/doodles";
+import { NotebookDoodle, SpeakerDoodle, WaveformDoodle } from "@/components/doodles";
 import { LiveDictation } from "@/components/studios/LiveDictation";
 import { Intro, errorText } from "@/components/studios/shared";
 import {
@@ -121,7 +121,7 @@ export function SttStudio() {
             ) : mode === "live" ? null : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <Panel>
-                  <EmptyState doodle={<MicDoodle className="h-24 w-20 text-ink" />} title="Your transcript will appear here">
+                  <EmptyState doodle={<SpeakerDoodle className="h-32 w-44 text-ink" />} title="Your transcript will appear here">
                     Pick a language on the right, or leave it on Auto to detect Khmer or English.
                   </EmptyState>
                 </Panel>

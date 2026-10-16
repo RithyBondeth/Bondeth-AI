@@ -16,6 +16,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.auth import get_optional_user
 from app.config import Settings, get_settings
@@ -114,15 +116,18 @@ async def _save_history(job: SttJob, request: Request) -> str | None:
     if job.transcription_id or not job.user_id or job.status != "done":
         return job.transcription_id
     redis = request.app.state.redis
-    if not await redis.hsetnx(job_key(job.id), "history_claimed", "1"):
-        return None  # another request is saving it
     body = json.loads(job.result)
     async with request.app.state.sessionmaker() as session:
-        row = Transcription(user_id=uuid.UUID(job.user_id), language_code=body["detected_language"],
-                            transcribed_text=body["text"], audio_duration_seconds=body["duration"])
-        session.add(row)
+        owner = await session.scalar(select(User.id).where(User.id == uuid.UUID(job.user_id)).with_for_update(key_share=True))
+        if owner is None:
+            return None
+        await session.execute(insert(Transcription).values(
+            user_id=owner, source_job_id=job.id, language_code=body["detected_language"],
+            transcribed_text=body["text"], audio_duration_seconds=body["duration"]
+        ).on_conflict_do_nothing(index_elements=[Transcription.source_job_id]))
+        row_id = await session.scalar(select(Transcription.id).where(Transcription.source_job_id == job.id))
         await session.commit()
-    job.transcription_id = str(row.id)
+    job.transcription_id = str(row_id)
     await redis.hset(job_key(job.id), "transcription_id", job.transcription_id)
     return job.transcription_id
 
@@ -173,6 +178,7 @@ async def create_stt_job(
             raise HTTPException(422, "Could not read the audio file.")
         async with limits.spend("stt_seconds", caller, duration) as charge:
             job = SttJob(id=job_id, audio_path=path, language=language, user_id=str(user.id) if user else "",
+                         priority=caller.plan == "pro",
                          charge=limits.job_charge("stt_seconds", caller, charge).dumps())
             try:
                 await run_in_threadpool(queue.submit, job)

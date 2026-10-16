@@ -31,9 +31,10 @@ class FakeEngine:
     def __init__(self, fail: bool = False):
         self.fail, self.calls = fail, []
 
-    def clone(self, text, language, ref_audio, ref_text, speed):
+    def clone(self, text, language, ref_audio, ref_text, speed, **kwargs):
         assert ref_audio.exists(), "reference must exist while generating"
         self.calls.append((text, language, ref_text, speed))
         if self.fail:
             raise RuntimeError("engine exploded")
-        return np.zeros(self.sample_rate, dtype=np.float32)  # 1 s
+        t = np.arange(self.sample_rate) / self.sample_rate
+        return (0.2 * np.sin(2 * np.pi * 220 * t)).astype(np.float32)  # 1 s of synthetic signal

@@ -1,17 +1,17 @@
 "use client";
 
-import { Check, Plus, Upload } from "lucide-react";
+import { Check, Plus, ShieldCheck, Upload } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
-import { NotebookDoodle, TwinVoicesDoodle } from "@/components/doodles";
+import { NotebookDoodle } from "@/components/doodles";
 import { RecentsPanel, useRecents } from "@/components/shell/Recents";
 import { Editor } from "@/components/studios/TtsStudio";
 import { ConsentCheckbox, VoiceAvatar } from "@/components/studios/VoicesLibrary";
 import { Intro, RequireAuth, errorText, useVoices } from "@/components/studios/shared";
-import { LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, Slider, cx, useToast } from "@/components/ui";
+import { Field, LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, Slider, Textarea, cx, useToast } from "@/components/ui";
 import { api, apiJson } from "@/lib/api";
 import { formatSeconds } from "@/lib/format";
 import type { CloneJob, Lang, Voice } from "@/lib/types";
@@ -40,6 +40,7 @@ function Studio() {
   const [lang, setLang] = useState<Lang>("auto");
   const [speed, setSpeed] = useState(1);
   const [clip, setClip] = useState<AudioClip | null>(null);
+  const [referenceText, setReferenceText] = useState("");
   const [consent, setConsent] = useState(false);
   const [job, setJob] = useState<CloneJob | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +69,7 @@ function Studio() {
     else if (clip) {
       form.append("reference_audio", clip.blob, clip.filename);
       form.append("consent", String(consent));
+      if (referenceText.trim()) form.append("reference_text", referenceText.trim());
     }
     submitted.current = { text, voice: voice?.voice_alias ?? "One-off sample" };
     setSubmitting(true);
@@ -143,12 +145,24 @@ function Studio() {
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden">
                 <div className="space-y-3 border-t border-line p-4">
-                  <AudioInput value={clip} onChange={setClip} maxSeconds={30} compact />
+                  <AudioInput value={clip} onChange={(next) => {
+                    setClip(next); setReferenceText(""); setConsent(false);
+                  }} maxSeconds={30} compact preserveVoice />
+                  <Field label="Reference transcript (optional)"
+                    hint="Type exactly what the speaker says, not the new text above. Leave blank for automatic transcription.">
+                    {(id) => <Textarea id={id} value={referenceText} onChange={(e) => setReferenceText(e.target.value)}
+                      rows={3} className="khmer" maxLength={3000} disabled={working} />}
+                  </Field>
                   <ConsentCheckbox checked={consent} onChange={setConsent} />
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+          <p className="border-t border-line p-4 text-xs leading-relaxed text-ink-soft">
+            For the closest match, use 5–10 seconds of one speaker in a quiet room, with no music or echo.
+            Use Khmer reference speech for Khmer output and keep speed at 1×. Check a saved voice&apos;s
+            transcript in <Link href="/voices" className="font-medium text-accent underline">Manage voices</Link>.
+          </p>
         </Panel>
 
         <Panel>
@@ -164,7 +178,9 @@ function Studio() {
         </Panel>
 
         <Panel className="flex items-center gap-3 p-4">
-          <TwinVoicesDoodle className="h-10 w-20 shrink-0 text-ink" />
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-lilac-soft text-lilac">
+            <ShieldCheck className="size-5" />
+          </span>
           <p className="text-xs text-ink-soft">Only clone voices you own or have explicit permission to use.</p>
         </Panel>
       </aside>
@@ -245,7 +261,7 @@ function JobProgress({ job: initial, onFinished }: { job: CloneJob; onFinished: 
                   ? job.queue_position && job.queue_position > 1 ? `In line: ${job.queue_position - 1} ahead of you` : "Up next…"
                   : "Sketching the voice…"}
               </p>
-              <p className="text-sm text-ink-soft">Usually 20-60 seconds on a laptop · {formatSeconds(elapsed)}</p>
+              <p className="text-sm text-ink-soft">Quality-first generation can take a minute or more · {formatSeconds(elapsed)}</p>
               <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
                 <motion.div className="h-full w-1/3 rounded-full bg-gradient-to-r from-lilac to-accent"
                   animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }} />

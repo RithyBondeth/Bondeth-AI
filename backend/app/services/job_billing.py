@@ -17,11 +17,12 @@ from dataclasses import asdict, dataclass
 from datetime import date
 
 from redis import Redis
-from sqlalchemy import func, update
+from sqlalchemy import func, update, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.db import ApiKeyUsage
+from app.db import ApiKeyUsage, Transcription, User
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,27 @@ class JobBilling:
     def __init__(self, redis: Redis, database_url: str | None):
         self._redis = redis
         self._database_url = database_url
+
+    def save_history(self, job_id: str, user_id: str, body: dict) -> str | None:
+        if not self._database_url:
+            return None
+        return asyncio.run(self._save_history(job_id, user_id, body))
+
+    async def _save_history(self, job_id: str, user_id: str, body: dict) -> str | None:
+        engine = create_async_engine(self._database_url, poolclass=NullPool)
+        try:
+            async with engine.begin() as conn:
+                # Key-share lock makes concurrent account deletion wait for the insert.
+                owner = await conn.scalar(select(User.id).where(User.id == uuid.UUID(user_id)).with_for_update(key_share=True))
+                if owner is None:
+                    return None
+                await conn.execute(insert(Transcription).values(
+                    user_id=owner, source_job_id=job_id, language_code=body["detected_language"],
+                    transcribed_text=body["text"], audio_duration_seconds=body["duration"]
+                ).on_conflict_do_nothing(index_elements=[Transcription.source_job_id]))
+                return str(await conn.scalar(select(Transcription.id).where(Transcription.source_job_id == job_id)))
+        finally:
+            await engine.dispose()
 
     def settle(self, charge: JobCharge | None, actual: int) -> None:
         """Correct a job's charge to `actual` (0 refunds it entirely)."""

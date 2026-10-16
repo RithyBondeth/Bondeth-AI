@@ -90,7 +90,7 @@ export function TtsStudio() {
     setBusy(true);
     try {
       const res = await api("/api/v1/tts", {
-        method: "POST", auth: "none",
+        method: "POST", auth: "optional",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, lang, speed }),
       });
