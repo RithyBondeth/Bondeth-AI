@@ -168,7 +168,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, f
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx("relative flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+          className={cx("relative flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
             value === o.value ? "text-ink" : "text-ink-soft hover:text-ink")}
         >
           {value === o.value && (
