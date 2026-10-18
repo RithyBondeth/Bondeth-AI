@@ -26,6 +26,7 @@ from app.deps import get_stt_queue, get_stt_service
 from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.stt import SttService
 from app.services.stt_jobs import JobStatus, QueueFull, SttJob, SttJobQueue, events_key, job_key
+from app.services.transcript_audio import save_source_audio
 from app.uploads import audio_duration, saved_upload, store_upload
 
 router = APIRouter(prefix="/stt", tags=["speech-to-text"])
@@ -58,6 +59,7 @@ async def speech_to_text(
     request: Request,
     file: UploadFile = File(..., description="Audio file (.wav, .mp3, .m4a, .webm, ...)"),
     language: Literal["auto", "km", "en"] = Form("auto"),
+    keep_source_audio: bool = Form(False),
     settings: Settings = Depends(get_settings),
     stt: SttService = Depends(get_stt_service),
     user: User | None = Depends(get_optional_user),
@@ -68,6 +70,8 @@ async def speech_to_text(
 
     Counts against the daily speech-to-text allowance (see GET /usage).
     """
+    if keep_source_audio and user is None:
+        raise HTTPException(401, "Sign in to keep source audio.")
     async with saved_upload(file, settings.tmp_dir, settings.max_upload_mb) as path:
         # Reserve the header's duration up front when it has one; settle to the real one below.
         probed = await run_in_threadpool(audio_duration, path)
@@ -79,15 +83,20 @@ async def speech_to_text(
                 raise HTTPException(422, f"Could not transcribe audio: {exc}") from exc
             charge.settle(result.duration)
 
-    transcription_id = None
-    if user is not None and result.text:
-        async with request.app.state.sessionmaker() as session:
-            row = Transcription(user_id=user.id, language_code=result.language,
-                                transcribed_text=result.text, audio_duration_seconds=result.duration,
-                                segments=[vars(s) for s in result.segments] or None, segmented_text=result.segmented_text)
-            session.add(row)
-            await session.commit()
-            transcription_id = row.id
+        transcription_id = None
+        if user is not None and result.text:
+            async with request.app.state.sessionmaker() as session:
+                row = Transcription(user_id=user.id, language_code=result.language,
+                                    transcribed_text=result.text, audio_duration_seconds=result.duration,
+                                    segments=[vars(s) for s in result.segments] or None, segmented_text=result.segmented_text,
+                                    source_audio_status="pending" if keep_source_audio else "not_saved")
+                session.add(row)
+                await session.commit()
+                transcription_id = row.id
+
+                if keep_source_audio:
+                    await save_source_audio(session, settings.data_dir, user.id, row.id, path,
+                                            settings.source_audio_storage_mb * 1024**2, settings.source_audio_max_mb * 1024**2)
 
     return SttResponse(
         transcription_id=transcription_id,
@@ -125,10 +134,15 @@ async def _save_history(job: SttJob, request: Request) -> str | None:
         await session.execute(insert(Transcription).values(
             user_id=owner, source_job_id=job.id, language_code=body["detected_language"],
             transcribed_text=body["text"], audio_duration_seconds=body["duration"],
-            segments=body.get("segments") or None, segmented_text=body.get("segmented_text")
+            segments=body.get("segments") or None, segmented_text=body.get("segmented_text"),
+            source_audio_status="pending" if job.keep_source_audio else "not_saved"
         ).on_conflict_do_nothing(index_elements=[Transcription.source_job_id]))
         row_id = await session.scalar(select(Transcription.id).where(Transcription.source_job_id == job.id))
         await session.commit()
+        if job.keep_source_audio:
+            settings = get_settings()
+            await save_source_audio(session, settings.data_dir, uuid.UUID(job.user_id), row_id, job.audio_path,
+                                    settings.source_audio_storage_mb * 1024**2, settings.source_audio_max_mb * 1024**2)
     job.transcription_id = str(row_id)
     await redis.hset(job_key(job.id), "transcription_id", job.transcription_id)
     return job.transcription_id
@@ -160,6 +174,7 @@ async def create_stt_job(
     request: Request,
     file: UploadFile = File(..., description="Audio file, up to the job upload limit"),
     language: Literal["auto", "km", "en"] = Form("auto"),
+    keep_source_audio: bool = Form(False),
     settings: Settings = Depends(get_settings),
     user: User | None = Depends(get_optional_user),
     caller: Caller = Depends(rate_limit("stt")),
@@ -171,6 +186,8 @@ async def create_stt_job(
     The recording's full length is reserved from the daily speech-to-text allowance
     up front and refunded if the job fails.
     """
+    if keep_source_audio and user is None:
+        raise HTTPException(401, "Sign in to keep source audio.")
     job_id = uuid.uuid4().hex
     work_dir = queue.new_work_dir(job_id)
     try:
@@ -180,7 +197,7 @@ async def create_stt_job(
             raise HTTPException(422, "Could not read the audio file.")
         async with limits.spend("stt_seconds", caller, duration) as charge:
             job = SttJob(id=job_id, audio_path=path, language=language, user_id=str(user.id) if user else "",
-                         priority=caller.plan == "pro",
+                         priority=caller.plan == "pro", keep_source_audio=keep_source_audio,
                          charge=limits.job_charge("stt_seconds", caller, charge).dumps())
             try:
                 await run_in_threadpool(queue.submit, job)

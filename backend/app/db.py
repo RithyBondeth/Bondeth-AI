@@ -74,6 +74,8 @@ class Transcription(Base):
     segmented_text: Mapped[str | None] = mapped_column(Text)
     revision: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_audio_status: Mapped[str] = mapped_column(String(20), server_default="not_saved", nullable=False)
+    source_audio_bytes: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class BillingEvent(Base):

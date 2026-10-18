@@ -9,6 +9,8 @@ DEV_JWT_SECRET = "dev-insecure-secret-change-me"
 
 
 class Settings(BaseSettings):
+    source_audio_storage_mb: int = Field(1024, ge=1)  # per-account source recordings
+    source_audio_max_mb: int = Field(128, ge=1)  # decoded mono WAV, per recording
     model_config = SettingsConfigDict(env_prefix="BONDETH_", env_file=".env", extra="ignore")
 
     app_name: str = "Bondeth AI API"
