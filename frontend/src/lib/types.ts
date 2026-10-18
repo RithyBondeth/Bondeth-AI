@@ -34,6 +34,8 @@ export type Transcription = {
 };
 
 export type TranscriptionDetail = Transcription & {
+  source_audio_status?: "not_saved" | "pending" | "available" | "storage_full" | "unavailable" | "removed";
+  source_audio_bytes?: number | null;
   segments: TranscriptSegment[] | null;
   segmented_text: string | null;
   revision: number;

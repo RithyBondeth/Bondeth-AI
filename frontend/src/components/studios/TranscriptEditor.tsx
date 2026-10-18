@@ -3,8 +3,9 @@
 import { useT } from "@/lib/useLocale";
 
 import { Check, Copy, Download } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { TranscriptAudio, type TranscriptPlayback } from "@/components/audio/TranscriptAudio";
 import { Badge, Button, IconButton, Panel, Segmented, Textarea, cx, useToast } from "@/components/ui";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
 import { downloadTranscript, subtitleText, subtitleTimestamp, transcriptDraft } from "@/lib/subtitles";
@@ -15,6 +16,10 @@ type View = "text" | "words" | "timeline" | "edit";
 
 export function TranscriptEditor({ document, ownerId }: { document: TranscriptDocument; ownerId: string | null }) {
   const t = useT();
+  const playback = useRef<TranscriptPlayback>(null);
+  const [activeSegment, setActiveSegment] = useState(-1);
+  const [sourceRemoved, setSourceRemoved] = useState(false);
+  const canSeek = !sourceRemoved && !!document.id && !!ownerId && ["available", "pending"].includes(document.source_audio_status ?? "");
   const toast = useToast();
   const editor = useTranscriptAutosave(document, ownerId);
   const [view, setView] = useState<View>("text");
@@ -52,6 +57,16 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
       {document.audio_duration_seconds != null && <Badge>{formatSeconds(document.audio_duration_seconds)}</Badge>}
       <span role="status" className={cx("text-xs", status === "error" || status === "conflict" ? "text-rose" : "text-ink-soft")}>{t(saveLabel)}</span>
     </div>
+    {document.id && ownerId && <TranscriptAudio ref={playback} id={document.id} ownerId={ownerId}
+      status={sourceRemoved ? "removed" : document.source_audio_status}
+      onRemoved={() => { setSourceRemoved(true); setActiveSegment(-1); }}
+      onPosition={(time) => {
+        let active = -1;
+        if (time >= 0) draft.segments?.forEach((segment, index) => {
+          if (segment.start <= time && time < segment.end) active = index;
+        });
+        setActiveSegment(active);
+      }} />}
     <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
       <Segmented label={t("Transcript view")} value={view} onChange={setView} options={views} className="max-w-full flex-wrap [&_button]:px-2" />
       <div className="ml-auto flex flex-wrap items-center gap-1.5" role="group" aria-label={t("Transcript exports")}>
@@ -79,20 +94,34 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
     {view === "edit" ? <div className="space-y-4 p-5">
       <p className="text-xs leading-relaxed text-ink-soft">{document.id ? t("Changes save automatically.") : t("Sign in before transcribing to save future transcripts and edits.")}
         {draft.segments && t(" Correct each segment below. Subtitle timings stay unchanged.")}</p>
-      {draft.segments ? draft.segments.map((segment, index) => <label key={index} className="block space-y-2">
+      {draft.segments ? draft.segments.map((segment, index) => <div key={index} data-active={activeSegment === index} className="block space-y-2 rounded-xl p-2 -m-2 data-[active=true]:bg-accent-soft data-[active=true]:ring-1 data-[active=true]:ring-accent">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
-          <span>{t("Segment ")}{index + 1}</span><span className="tabular-nums">{subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</span>
+          <span>{t("Segment ")}{index + 1}</span>{canSeek ? <button type="button" aria-label={t("Play segment {number}", { number: index + 1 })}
+            aria-current={activeSegment === index ? "true" : undefined} onClick={() => playback.current?.seek(segment.start)}
+            className="rounded-lg px-2 py-1 font-medium tabular-nums text-accent hover:bg-accent-soft">
+            {subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</button>
+            : <span className="tabular-nums">{subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</span>}
         </span>
         <Textarea aria-label={t("Segment {number} text", { number: index + 1 })} lang={document.language_code} className={cx(isKhmer && "khmer")}
           rows={2} maxLength={10000} disabled={resolving} value={segment.text} onChange={(event) => editor.edit(transcriptDraft("",
             draft.segments!.map((s, i) => i === index ? { ...s, text: event.target.value } : s)))} />
-      </label>) : <Textarea aria-label={t("Transcript text")} lang={document.language_code} className={cx(isKhmer && "khmer")}
+      </div>) : <Textarea aria-label={t("Transcript text")} lang={document.language_code} className={cx(isKhmer && "khmer")}
         rows={8} maxLength={500000} disabled={resolving} value={draft.text} onChange={(event) => editor.edit({ text: event.target.value, segments: null })} />}
-    </div> : view === "timeline" ? <ol className="space-y-4 p-5">{draft.segments?.map((segment, index) => <li key={index} className="space-y-1">
-      <p className="text-xs tabular-nums text-ink-soft">{subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</p>
-      <p lang={document.language_code} className={cx("whitespace-pre-wrap break-words text-sm", isKhmer && "khmer")}>{segment.text || t("(Empty cue)")}</p>
-    </li>)}</ol> : <p lang={document.language_code} className={cx("whitespace-pre-wrap break-words p-5 text-lg leading-relaxed", isKhmer && "khmer")}>
-      {text || <span className="text-ink-soft">{t("This transcript is empty. Choose Edit to add text.")}</span>}
-    </p>}
+    </div> : view === "timeline" ? <ol className="space-y-2 p-5">{draft.segments?.map((segment, index) => <li key={index}>
+      <button type="button" disabled={!canSeek} aria-label={t("Play segment {number}", { number: index + 1 })}
+        aria-current={activeSegment === index ? "true" : undefined} onClick={() => playback.current?.seek(segment.start)}
+        className={cx("w-full rounded-xl p-3 text-left transition-colors disabled:cursor-default", canSeek && "hover:bg-surface-2",
+          activeSegment === index && "bg-accent-soft ring-1 ring-accent")}>
+        <span className="block text-xs tabular-nums text-ink-soft">{subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</span>
+        <span lang={document.language_code} className={cx("mt-1 block whitespace-pre-wrap break-words text-sm", isKhmer && "khmer")}>{segment.text || t("(Empty cue)")}</span>
+      </button>
+    </li>)}</ol> : <div lang={document.language_code} className={cx("whitespace-pre-wrap break-words p-5 text-lg leading-relaxed", isKhmer && "khmer")}>
+      {view === "text" && canSeek && draft.segments ? draft.segments.map((segment, index) => <span key={index}>
+        {index > 0 && " "}<button type="button" aria-label={t("Play segment {number}", { number: index + 1 })}
+          aria-current={activeSegment === index ? "true" : undefined} onClick={() => playback.current?.seek(segment.start)}
+          className={cx("rounded-md px-0.5 text-left transition-colors hover:bg-surface-2", activeSegment === index && "bg-accent-soft ring-1 ring-accent")}>
+          {segment.text || t("(Empty cue)")}</button>
+      </span>) : text || <span className="text-ink-soft">{t("This transcript is empty. Choose Edit to add text.")}</span>}
+    </div>}
   </Panel>;
 }

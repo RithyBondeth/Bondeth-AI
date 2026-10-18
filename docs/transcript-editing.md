@@ -69,3 +69,51 @@ Format references: [WebVTT](https://www.w3.org/TR/webvtt1/),
 Editing and exporting do not run a speech model or spend transcription quota.
 Queued-job result replay keeps its original inference result; reopen the saved
 document to retrieve the latest edits.
+
+## Audio-synced editing
+
+Signed-in users can leave **Keep source audio** checked before uploading or
+starting live dictation. The API defaults to not retaining recordings unless
+`keep_source_audio=true` is submitted with `/stt` or `/stt/jobs`, or the boolean
+is included in a live session's start message. Anonymous retention is refused.
+Existing transcripts have no recoverable source recording.
+
+Saved recordings are normalized to mono 16 kHz PCM WAV for browser playback.
+The complete decoded timeline, including silence, is retained so segment
+positions stay aligned. The original upload file is still discarded. Queued
+workers archive the recording before removing temporary input, even if the
+browser has disconnected; embedded and standalone workers use the same storage.
+Live capture streams to a bounded temporary file and is saved on successful
+completion. Leaving a live session before completion discards its capture.
+
+Use **Listen**, pause, the seek bar, five-second skip buttons, and playback speed
+controls. Click text or timeline segments, or a timestamp in Edit, to start
+listening there. The current segment highlights as playback moves; silence
+between cues has no highlight. Playback never changes text, moves keyboard
+focus, or interrupts autosave. Timings remain recognition segment boundaries,
+so highlighting is at segment rather than individual-word level.
+
+Recordings live under `BONDETH_DATA_DIR/transcript_audio/<owner>/<transcript>.wav`,
+with private file permissions. Never expose this directory through static file
+hosting. Back it up together with PostgreSQL and mount the same persistent data
+volume in the API and workers. Only the owner can fetch or delete a recording:
+
+- `GET /api/v1/transcriptions/{id}/source-audio` serves WAV with private/no-store
+  caching and supports byte ranges. Browser playback fetches with the normal
+  bearer header and uses a temporary blob URL; credentials never enter URLs.
+- `DELETE /api/v1/transcriptions/{id}/source-audio` removes the recording while
+  preserving transcript text, revisions, edits, and subtitle exports. Removed
+  recordings cannot be resurrected by a worker retry.
+- Deleting a transcript or account also removes its source recordings.
+
+`BONDETH_SOURCE_AUDIO_STORAGE_MB` defaults to 1024 MiB per account and
+`BONDETH_SOURCE_AUDIO_MAX_MB` to 128 MiB per decoded recording. Configure both
+consistently on API and workers; Compose forwards them to both. Quota checks
+serialize concurrent writes for each account. Deletion frees capacity. These
+limits apply to the normalized WAV, independently of compressed upload limits.
+The document exposes `source_audio_status` and `source_audio_bytes`. Storage,
+decoding or size failures leave the text transcript usable and show an audio
+availability message. No source is retained when no transcript text was produced.
+Temporary archive files normally disappear immediately; after a process crash,
+operators may remove old `.staging` files and `tmp/live-source-*` folders while
+API and workers are stopped. Completed recordings persist until explicitly deleted.

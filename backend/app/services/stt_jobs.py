@@ -30,6 +30,7 @@ from redis import Redis
 
 from app.services import queue_storage
 from app.services.job_billing import JobBilling, JobCharge
+from app.services.transcript_audio import TranscriptAudioLibrary
 from app.services.stt import Segment, SttService
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ class SttJob:
     language: str  # "auto" | "km" | "en"
     user_id: str = ""  # "" for anonymous jobs, whose unguessable id is the only way in
     charge: str | None = None  # JobCharge JSON: seconds reserved, settled when the job ends
+    keep_source_audio: bool = False
     priority: bool = False
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     status: JobStatus = "queued"
@@ -82,6 +84,7 @@ class SttJob:
                 kwargs[name] = None
         kwargs["audio_path"] = Path(kwargs["audio_path"])
         kwargs["created_at"] = float(kwargs["created_at"])
+        kwargs["keep_source_audio"] = kwargs.get("keep_source_audio") == "True"
         kwargs["priority"] = kwargs.get("priority") == "True"
         if kwargs.get("finished_at") is not None:
             kwargs["finished_at"] = float(kwargs["finished_at"])
@@ -90,9 +93,10 @@ class SttJob:
 
 class SttJobQueue:
     def __init__(self, redis: Redis, stt: SttService, jobs_root: Path, max_pending: int, ttl_s: int,
-                 billing: JobBilling | None = None):
+                 billing: JobBilling | None = None, library: TranscriptAudioLibrary | None = None):
         self._redis = redis
         self._billing = billing
+        self._library = library
         self._stt = stt
         self._jobs_root = jobs_root
         self._max_pending = max_pending
@@ -207,7 +211,10 @@ class SttJobQueue:
             }
             job.status, job.result = "done", json.dumps(body, ensure_ascii=False)
             if self._billing and job.user_id:
-                job.transcription_id = self._billing.save_history(job.id, job.user_id, body)
+                job.transcription_id = self._billing.save_history(job.id, job.user_id,
+                    {**body, "source_audio_status": "pending" if job.keep_source_audio else "not_saved"})
+                if self._library:
+                    self._library.save(job)
             self._settle(job, math.ceil(result.duration))
             final = ("done", body)
         except Exception as exc:

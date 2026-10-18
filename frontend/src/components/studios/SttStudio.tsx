@@ -28,6 +28,7 @@ export function SttStudio() {
   const t = useT();
   const toast = useToast();
   const user = useUser();
+  const [keepSource, setKeepSource] = useState(true);
   const [clip, setClip] = useState<AudioClip | null>(null);
   const [lang, setLang] = useState<Lang>("auto");
   const [busy, setBusy] = useState(false);
@@ -46,6 +47,7 @@ export function SttStudio() {
     const form = new FormData();
     form.append("file", clip.blob, clip.filename);
     form.append("language", lang);
+    form.append("keep_source_audio", String(!!user && keepSource));
     setBusy(true);
     setResult(null);
     try {
@@ -84,7 +86,7 @@ export function SttStudio() {
           <Segmented label={t("Input")} value={mode} onChange={(m) => { abortRef.current?.abort(); setMode(m); setResult(null); setBusy(false); setLive(null); }}
             options={[{ value: "live", label: t("Live dictation") }, { value: "file", label: t("Record or upload") }]} />
           {mode === "live" ? (
-            <LiveDictation lang={lang} onResult={setResult} />
+            <LiveDictation keepSourceAudio={!!user && keepSource} lang={lang} onResult={setResult} />
           ) : (
           <Panel>
             <PanelHeader title={t("Audio")} km="សំឡេង" />
@@ -139,6 +141,10 @@ export function SttStudio() {
               <Setting label={t("Language")}>
                 <Segmented full label={t("Language")} value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
               </Setting>
+              {user && <label className="flex items-start gap-3 text-sm leading-relaxed">
+                <input type="checkbox" checked={keepSource} onChange={(event) => setKeepSource(event.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--accent)]" />
+                <span>{t("Keep source audio")}<span className="mt-1 block text-xs text-ink-soft">{t("Save a private recording with the transcript for playback. You can delete it later.")}</span></span>
+              </label>}
               <Setting label={t("Limits")}>
                 <p className="text-sm text-ink-soft">{t("Up to 200 MB per file: .wav, .mp3, .m4a, .webm, .ogg, .flac. Long recordings stream in as they're transcribed.")}</p>
               </Setting>
