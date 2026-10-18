@@ -223,3 +223,10 @@ p { text-wrap: pretty; }
 
 #main-content { scroll-margin-top: 5rem; }
 #tools { scroll-margin-top: 6rem; }
+
+/* Khmer marks need more vertical room than Latin capitals. Keep the shared font family. */
+html:lang(km) :is(h1, h2, h3) {
+  letter-spacing: normal;
+  line-height: 1.55;
+}
+html:lang(km) .secondary-khmer { display: none; }

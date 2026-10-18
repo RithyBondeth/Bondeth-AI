@@ -60,16 +60,29 @@ it exits; a forced kill leaves the job in Redis processing for restart recovery.
 Do not run another owner with a different, unshared data directory against the same
 Redis queue. Redis AOF, job/audio volumes, and matching paths are all required for recovery.
 
+## Account email
+
+Verification and password reset emails have English and Khmer subjects and plain-text
+bodies. The frontend sends the selected interface language in `Accept-Language` on
+API requests. Registration, verification resend, and password reset requests capture
+that language when constructing the email; changing the interface language applies
+to the next request. API callers can send `Accept-Language: km` or `en`; regional tags
+and quality-weighted preferences are supported. Missing, invalid, or unsupported
+preferences default to English. SMTP messages use UTF-8 and `Content-Language`.
+This uses the browser's current preference, without adding an account-level setting.
+
 ## Backups and rollback
 
 PostgreSQL is the durable account/history/subscription/metering store. Back it up and
-test restores. Back up saved voice WAV files with their database metadata and consent
+test restores. Back up generated library WAVs (`data/audio_library/`) alongside their
+`generated_audio` rows; these outputs survive job expiry and are retained until user deletion.
+Back up saved voice WAV files with their database metadata and consent
 timestamps. Model caches are replaceable; saved reference voices are not. Preserve
 Redis AOF for queue/auth/quota recovery. Losing Redis can invalidate sessions and
 lose pending jobs; a PostgreSQL backup alone does not restore them.
 
-The new migration adds nullable subscription columns, job-history identity and event
-receipts. The schema is additive; roll back application code before considering a
+Migrations add nullable subscription columns, job-history identity, event receipts,
+and the generated-audio library table. The schema is additive; roll back application code before considering a
 schema downgrade. Stop worker owners first and ensure there are no pending billing
 events before downgrading. A downgrade discards subscription state and webhook receipts;
 prefer forward repair or restoring a verified backup to destructive downgrades.

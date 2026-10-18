@@ -36,6 +36,7 @@ class CloneJobOut(BaseModel):
     status_url: str
     audio_url: str | None = None
     cache_hit: bool = False
+    audio_id: str | None = None
 
 
 def _job_out(job: CloneJob, queue: CloneJobQueue, request: Request) -> CloneJobOut:
@@ -51,6 +52,7 @@ def _job_out(job: CloneJob, queue: CloneJobQueue, request: Request) -> CloneJobO
         status_url=str(request.url_for("clone_job_status", job_id=job.id)),
         audio_url=str(request.url_for("clone_job_audio", job_id=job.id)) if job.status == "done" else None,
         cache_hit=job.cache_hit,
+        audio_id=job.audio_id,
     )
 
 
@@ -99,6 +101,7 @@ async def create_clone_job(
         if voice_id is not None:
             voice = await get_owned_voice(voice_id, user, session)  # consent was given when it was saved
             job = CloneJob(**common, work_dir=queue.new_work_dir(job_id), voice_id=str(voice.id),
+                           voice_label=voice.voice_alias,
                            reference_path=voice_audio_path(voice, settings), delete_reference=False,
                            ref_text=voice.reference_text, ref_text_source="saved_voice")
         else:

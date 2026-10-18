@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { motion, useInView, type SVGMotionProps, type Variants } from "motion/react";
 import { createContext, useContext, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 
@@ -97,6 +99,7 @@ export function useLoop() {
 }
 
 export function Doodle({ viewBox, className, label, strokeWidth = 1.8, still = false, children, ...position }: DoodleProps) {
+  const t = useT();
   const prefix = `doodle${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   // The hydration snapshot must match the server's unknown OS preference.
   // Subscribe after hydration, also responding when the user changes the setting.
@@ -122,7 +125,7 @@ export function Doodle({ viewBox, className, label, strokeWidth = 1.8, still = f
         ? { initial: "visible", animate: "visible" }
         : { initial: "hidden", whileInView: "visible", viewport: { once: true, amount: 0.3 } })}
       role={label ? "img" : undefined}
-      aria-label={label}
+      aria-label={label ? t(label) : undefined}
       aria-hidden={label ? undefined : true}
       overflow="hidden"
       {...position}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -25,9 +27,10 @@ export function LogoMark({ className, replay = 0 }: { className?: string; replay
 }
 
 export function Logo({ className, wordmarkClassName }: { className?: string; wordmarkClassName?: string }) {
+  const t = useT();
   const [replay, setReplay] = useState(0);
   return (
-    <Link href="/" className={cx("flex items-center gap-2.5", className)} aria-label="Bondeth AI home"
+    <Link href="/" className={cx("flex items-center gap-2.5", className)} aria-label={t("Bondeth AI home")}
       onPointerEnter={() => setReplay((n) => n + 1)}>
       <LogoMark className="size-10 shrink-0" replay={replay} />
       <span className={cx("flex flex-col gap-1", wordmarkClassName)}>

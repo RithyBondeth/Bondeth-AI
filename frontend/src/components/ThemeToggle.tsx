@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -11,11 +13,12 @@ import { getTheme, setTheme } from "@/lib/theme";
  * before the first paint, so the toggle never flashes the wrong icon.
  */
 export function ThemeToggle({ className }: { className?: string }) {
+  const t = useT();
   return (
     <motion.button
       type="button"
-      aria-label="Toggle light and dark theme"
-      title="Toggle theme"
+      aria-label={t("Toggle light and dark theme")}
+      title={t("Toggle theme")}
       whileTap={{ scale: 0.88, rotate: -20 }}
       onClick={() => setTheme(getTheme() === "dark" ? "light" : "dark")}
       className={cx("relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink", className)}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { Mic, Square, Upload, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -23,6 +25,7 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
   compact?: boolean;
   preserveVoice?: boolean;
 }) {
+  const t = useT();
   const toast = useToast();
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -111,7 +114,7 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
     return (
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex min-w-0 items-center gap-2">
         <AudioPlayer blob={value.blob} filename={value.filename} tone="teal" compact={compact} className="min-w-0 flex-1" />
-        <IconButton label="Remove audio" onClick={() => onChange(null)} className="hover:bg-rose-soft hover:text-rose">
+        <IconButton label={t("Remove audio")} onClick={() => onChange(null)} className="hover:bg-rose-soft hover:text-rose">
           <X className="size-4" />
         </IconButton>
       </motion.div>
@@ -150,7 +153,7 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
           onClick={recording ? stop : start}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.93 }}
-          aria-label={recording ? "Stop recording" : "Start recording"}
+          aria-label={recording ? t("Stop recording") : t("Start recording")}
           className={cx(
             "relative grid place-items-center rounded-full transition-colors",
             "shadow-[inset_0_2px_0_rgb(255_255_255/0.3),0_14px_30px_-10px_currentColor]",
@@ -174,21 +177,19 @@ export function AudioInput({ value, onChange, maxSeconds = 300, compact = false,
           </div>
           <p className="text-sm tabular-nums text-ink-soft">
             <span className="mr-1.5 inline-block size-2 animate-pulse rounded-full bg-rose" />
-            {formatSeconds(elapsed)} / {formatSeconds(maxSeconds)} · tap to stop
-          </p>
+            {formatSeconds(elapsed)} / {formatSeconds(maxSeconds)} {t(" · tap to stop")}</p>
         </div>
       ) : (
         <div className={cx("space-y-1", compact && "flex-1")}>
           <p className={cx("font-medium", !compact && "text-lg")}>
-            {compact ? "Record or drop a file" : "Tap to record"}
+            {compact ? t("Record or drop a file") : t("Tap to record")}
           </p>
           <p className="text-sm text-ink-soft">
-            {compact ? `Up to ${formatSeconds(maxSeconds)}` : "or drop an audio file anywhere in this box"}
+            {compact ? t("Up to {duration}", { duration: formatSeconds(maxSeconds) }) : t("or drop an audio file anywhere in this box")}
           </p>
           <button type="button" onClick={() => fileRef.current?.click()}
             className="inline-flex items-center gap-1.5 pt-1 text-sm font-medium text-accent hover:underline">
-            <Upload className="size-4" /> Choose a file
-          </button>
+            <Upload className="size-4" /> {t(" Choose a file")}</button>
           <input ref={fileRef} type="file" accept="audio/*,.m4a,.webm" className="hidden"
             onChange={(e) => { accept(e.target.files?.[0]); e.target.value = ""; }} />
         </div>

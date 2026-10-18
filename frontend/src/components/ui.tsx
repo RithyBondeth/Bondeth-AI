@@ -1,5 +1,8 @@
 "use client";
 
+import type { MessageValues } from "@/lib/i18n";
+import { useT } from "@/lib/useLocale";
+
 import { LoaderCircle, X } from "lucide-react";
 import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react";
 import { createPortal } from "react-dom";
@@ -62,11 +65,12 @@ export function Button({ variant = "primary", size = "md", loading, icon, classN
 }
 
 export function IconButton({ label, className, children, ...rest }: HTMLMotionProps<"button"> & { label: string }) {
+  const t = useT();
   return (
     <motion.button
       type="button"
-      aria-label={label}
-      title={label}
+      aria-label={t(label)}
+      title={t(label)}
       whileTap={{ scale: 0.9 }}
       className={cx("grid size-9 shrink-0 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink", className)}
       {...rest}
@@ -93,10 +97,11 @@ export function Panel({ className, children, ...rest }: HTMLMotionProps<"section
 }
 
 export function PanelHeader({ title, km, children }: { title: string; km?: string; children?: ReactNode }) {
+  const t = useT();
   return (
     <div className="flex min-h-12 items-center gap-3 border-b border-line px-5 py-2">
       <h2 className="text-sm font-medium">
-        {title} {km && <span className="khmer font-normal text-ink-soft">· {km}</span>}
+        {t(title)} {km && <span className="secondary-khmer khmer font-normal text-ink-soft">· {km}</span>}
       </h2>
       <div className="ml-auto flex items-center gap-1">{children}</div>
     </div>
@@ -105,10 +110,11 @@ export function PanelHeader({ title, km, children }: { title: string; km?: strin
 
 /** A labelled block inside a settings panel. */
 export function Setting({ label, value, children }: { label: string; value?: ReactNode; children: ReactNode }) {
+  const t = useT();
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between text-xs font-medium tracking-wide text-ink-soft">
-        <span>{label}</span>
+        <span>{t(label)}</span>
         {value !== undefined && <span className="normal-case tabular-nums text-ink">{value}</span>}
       </div>
       {children}
@@ -122,18 +128,29 @@ const FIELD =
   "ink-field w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-accent focus:bg-surface focus:outline-none";
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: (id: string) => ReactNode }) {
+  const t = useT();
   const id = useId();
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">{label}</label>
+      <label htmlFor={id} className="block text-sm font-medium text-ink">{t(label)}</label>
       {children(id)}
       {hint && <p className="text-xs text-ink-soft">{hint}</p>}
     </div>
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(FIELD, className)} {...props} />;
+export function Input({ className, onInvalid, onInput, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  const t = useT();
+  return <input className={cx(FIELD, className)} {...props}
+    onInvalid={(event) => {
+      const input = event.currentTarget;
+      input.setCustomValidity("");
+      if (input.validity.valueMissing) input.setCustomValidity(t("Please fill out this field."));
+      else if (input.validity.typeMismatch && input.type === "email") input.setCustomValidity(t("Please enter a valid email address."));
+      else if (input.validity.tooShort) input.setCustomValidity(t("Use at least {count} characters.", { count: input.minLength }));
+      onInvalid?.(event);
+    }}
+    onInput={(event) => { event.currentTarget.setCustomValidity(""); onInput?.(event); }} />;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -143,25 +160,28 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 export function Slider({ value, onChange, min, max, step, label }: {
   value: number; onChange: (v: number) => void; min: number; max: number; step: number; label: string;
 }) {
+  const t = useT();
   return (
-    <input type="range" aria-label={label} min={min} max={max} step={step} value={value}
+    <input type="range" aria-label={t(label)} min={min} max={max} step={step} value={value}
       onChange={(e) => onChange(Number(e.target.value))} className="w-full" />
   );
 }
 
 // ---------- Segmented control / tabs ----------
 
-export function Segmented<T extends string>({ value, onChange, options, label, full }: {
+export function Segmented<T extends string>({ value, onChange, options, label, full, className }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: ReactNode }[];
   label: string;
   full?: boolean;
+  className?: string;
 }) {
+  const t = useT();
   const group = useId();
   return (
-    <div role="radiogroup" aria-label={label}
-      className={cx("inline-flex rounded-xl bg-surface-2 p-1", full && "flex w-full")}>
+    <div role="radiogroup" aria-label={t(label)}
+      className={cx("inline-flex rounded-xl bg-surface-2 p-1", full && "flex w-full", className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -176,7 +196,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, f
             <motion.span layoutId={`seg-${group}`} transition={spring}
               className="absolute inset-0 rounded-lg bg-surface shadow-[0_1px_3px_rgb(0_0_0/0.12)]" />
           )}
-          <span className="relative">{o.label}</span>
+          <span className="relative">{typeof o.label === "string" ? t(o.label) : o.label}</span>
         </button>
       ))}
     </div>
@@ -205,10 +225,11 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
 // ---------- Empty state ----------
 
 export function EmptyState({ doodle, title, children, action }: { doodle: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
       <div className="mb-4 rounded-3xl p-4">{doodle}</div>
-      <h3 className="font-medium">{title}</h3>
+      <h3 className="font-medium">{t(title)}</h3>
       {children && <p className="mt-1 max-w-sm text-sm text-ink-soft">{children}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -218,6 +239,7 @@ export function EmptyState({ doodle, title, children, action }: { doodle: ReactN
 // ---------- Dialog ----------
 
 export function Dialog({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -232,13 +254,13 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
           <motion.div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-          <motion.div role="dialog" aria-modal aria-label={title}
+          <motion.div role="dialog" aria-modal aria-label={t(title)}
             initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
             className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto paper-panel bg-surface scroll-thin">
             <div className="sticky top-0 z-10 flex items-center border-b border-line bg-surface px-5 py-3">
-              <h2 className="font-medium">{title}</h2>
-              <IconButton label="Close" onClick={onClose} className="ml-auto"><X className="size-4" /></IconButton>
+              <h2 className="font-medium">{t(title)}</h2>
+              <IconButton label={t("Close")} onClick={onClose} className="ml-auto"><X className="size-4" /></IconButton>
             </div>
             <div className="p-5">{children}</div>
           </motion.div>
@@ -250,14 +272,15 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
 
 // ---------- Toasts ----------
 
-type Toast = { id: number; message: string; tone: "info" | "error" | "success" };
-const ToastContext = createContext<(message: string, tone?: Toast["tone"]) => void>(() => {});
+type Toast = { id: number; message: string; values?: MessageValues; tone: "info" | "error" | "success" };
+const ToastContext = createContext<(message: string, tone?: Toast["tone"], values?: MessageValues) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const translateMessage = useT();
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = useCallback((message: string, tone: Toast["tone"] = "info") => {
+  const push = useCallback((message: string, tone: Toast["tone"] = "info", values?: MessageValues) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, message, tone }]);
+    setToasts((t) => [...t, { id, message, tone, values }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4500);
   }, []);
   return (
@@ -276,7 +299,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <span className={cx("size-2 shrink-0 rounded-full",
                 t.tone === "error" ? "bg-rose" : t.tone === "success" ? "bg-teal" : "bg-accent")} />
-              <span className="min-w-0 break-words">{t.message}</span>
+              <span className="min-w-0 break-words">{translateMessage(t.message, t.values)}</span>
             </motion.div>
           ))}
         </AnimatePresence>

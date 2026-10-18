@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { Check, Plus, ShieldCheck, Upload } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -21,10 +23,11 @@ const MAX_CHARS = 500;
 type Source = { kind: "voice"; id: string } | { kind: "upload" };
 
 export function CloneStudio() {
+  const t = useT();
   return (
     <>
-      <Intro>Pick a saved voice, or a one-off sample, and make it say anything in Khmer or English.</Intro>
-      <RequireAuth why="Accounts keep your saved voices private and record who confirmed consent for each one.">
+      <Intro>{t("Pick a saved voice, or a one-off sample, and make it say anything in Khmer or English.")}</Intro>
+      <RequireAuth why={t("Accounts keep your saved voices private and record who confirmed consent for each one.")}>
         <Studio />
       </RequireAuth>
     </>
@@ -32,6 +35,7 @@ export function CloneStudio() {
 }
 
 function Studio() {
+  const t = useT();
   const toast = useToast();
   const { add } = useRecents();
   const { voices } = useVoices();
@@ -88,7 +92,7 @@ function Studio() {
     if (done.status !== "done") return;
     try {
       const blob = await (await api(`/api/v1/clone/jobs/${done.job_id}/audio`, { auth: "required" })).blob();
-      add({ kind: "clone", ...submitted.current, blob });
+      add({ kind: "clone", ...submitted.current, blob, savedId: done.audio_id ?? undefined });
     } catch (err) {
       toast(errorText(err, "Couldn't download the result."), "error");
     }
@@ -98,7 +102,7 @@ function Studio() {
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-6">
         <Editor text={text} setText={setText} max={MAX_CHARS} busy={working} disabled={!ready} onGenerate={submit}
-          cta="Clone & speak" busyLabel="Cloning…" />
+          cta={t("Clone & speak")} busyLabel={t("Cloning…")} />
         <AnimatePresence>
           {job && (job.status === "queued" || job.status === "running" || job.status === "failed") && (
             <JobProgress key={job.job_id} job={job} onFinished={onDone} />
@@ -109,10 +113,10 @@ function Studio() {
 
       <aside className="min-w-0 space-y-6">
         <Panel>
-          <PanelHeader title="Voice" km="សំឡេង">
-            <Link href="/voices" className="rounded-lg px-2 py-1 text-xs font-medium text-ink-soft hover:bg-surface-2 hover:text-ink">Manage</Link>
+          <PanelHeader title={t("Voice")} km="សំឡេង">
+            <Link href="/voices" className="rounded-lg px-2 py-1 text-xs font-medium text-ink-soft hover:bg-surface-2 hover:text-ink">{t("Manage")}</Link>
           </PanelHeader>
-          <div className="space-y-1.5 p-3" role="radiogroup" aria-label="Voice to use">
+          <div className="space-y-1.5 p-3" role="radiogroup" aria-label={t("Voice to use")}>
             {voices === null ? (
               [0, 1].map((k) => <div key={k} className="h-14 animate-pulse rounded-xl bg-surface-2" />)
             ) : (
@@ -128,14 +132,13 @@ function Studio() {
                     <Upload className="size-4" />
                   </span>
                   <span className="text-sm">
-                    <span className="block font-medium">One-off sample</span>
-                    <span className="text-xs text-ink-soft">Upload or record just for this clip</span>
+                    <span className="block font-medium">{t("One-off sample")}</span>
+                    <span className="text-xs text-ink-soft">{t("Upload or record just for this clip")}</span>
                   </span>
                 </button>
                 {voices.length === 0 && (
                   <Link href="/voices" className="flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium text-accent hover:bg-surface-2">
-                    <Plus className="size-4" /> Save a voice to reuse it
-                  </Link>
+                    <Plus className="size-4" /> {t(" Save a voice to reuse it")}</Link>
                 )}
               </>
             )}
@@ -148,8 +151,8 @@ function Studio() {
                   <AudioInput value={clip} onChange={(next) => {
                     setClip(next); setReferenceText(""); setConsent(false);
                   }} maxSeconds={30} compact preserveVoice />
-                  <Field label="Reference transcript (optional)"
-                    hint="Type exactly what the speaker says, not the new text above. Leave blank for automatic transcription.">
+                  <Field label={t("Reference transcript (optional)")}
+                    hint={t("Type exactly what the speaker says, not the new text above. Leave blank for automatic transcription.")}>
                     {(id) => <Textarea id={id} value={referenceText} onChange={(e) => setReferenceText(e.target.value)}
                       rows={3} className="khmer" maxLength={3000} disabled={working} />}
                   </Field>
@@ -159,20 +162,18 @@ function Studio() {
             )}
           </AnimatePresence>
           <p className="border-t border-line p-4 text-xs leading-relaxed text-ink-soft">
-            For the closest match, use 5–10 seconds of one speaker in a quiet room, with no music or echo.
-            Use Khmer reference speech for Khmer output and keep speed at 1×. Check a saved voice&apos;s
-            transcript in <Link href="/voices" className="font-medium text-accent underline">Manage voices</Link>.
+            {t("For the closest match, use 5–10 seconds of one speaker in a quiet room, with no music or echo. Use Khmer reference speech for Khmer output and keep speed at 1×. Check a saved voice's transcript in ")}<Link href="/voices" className="font-medium text-accent underline">{t("Manage voices")}</Link>.
           </p>
         </Panel>
 
         <Panel>
-          <PanelHeader title="Settings" />
+          <PanelHeader title={t("Settings")} />
           <div className="space-y-6 p-5">
-            <Setting label="Language">
-              <Segmented full label="Language" value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
+            <Setting label={t("Language")}>
+              <Segmented full label={t("Language")} value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
             </Setting>
-            <Setting label="Speed" value={`${speed.toFixed(1)}×`}>
-              <Slider label="Speed" min={0.5} max={2} step={0.1} value={speed} onChange={setSpeed} />
+            <Setting label={t("Speed")} value={`${speed.toFixed(1)}×`}>
+              <Slider label={t("Speed")} min={0.5} max={2} step={0.1} value={speed} onChange={setSpeed} />
             </Setting>
           </div>
         </Panel>
@@ -181,7 +182,7 @@ function Studio() {
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-lilac-soft text-lilac">
             <ShieldCheck className="size-5" />
           </span>
-          <p className="text-xs text-ink-soft">Only clone voices you own or have explicit permission to use.</p>
+          <p className="text-xs text-ink-soft">{t("Only clone voices you own or have explicit permission to use.")}</p>
         </Panel>
       </aside>
     </div>
@@ -209,6 +210,7 @@ function VoiceOption({ voice, selected, onSelect }: { voice: Voice; selected: bo
 
 /** Polls a clone job until it finishes. */
 function JobProgress({ job: initial, onFinished }: { job: CloneJob; onFinished: (job: CloneJob) => void }) {
+  const t = useT();
   const [job, setJob] = useState(initial);
   const [elapsed, setElapsed] = useState(0);
   const started = useRef(0);
@@ -251,17 +253,17 @@ function JobProgress({ job: initial, onFinished }: { job: CloneJob; onFinished: 
         <div className="min-w-0 flex-1">
           {job.status === "failed" ? (
             <>
-              <p className="font-medium text-rose">That didn&apos;t work</p>
-              <p className="text-sm text-ink-soft">{job.error}</p>
+              <p className="font-medium text-rose">{t("That didn't work")}</p>
+              <p className="text-sm text-ink-soft">{job.error && t(job.error)}</p>
             </>
           ) : (
             <>
               <p className="font-medium">
                 {job.status === "queued"
-                  ? job.queue_position && job.queue_position > 1 ? `In line: ${job.queue_position - 1} ahead of you` : "Up next…"
-                  : "Sketching the voice…"}
+                  ? job.queue_position && job.queue_position > 1 ? t("In line: {count} ahead of you", { count: job.queue_position - 1 }) : t("Up next…")
+                  : t("Sketching the voice…")}
               </p>
-              <p className="text-sm text-ink-soft">Quality-first generation can take a minute or more · {formatSeconds(elapsed)}</p>
+              <p className="text-sm text-ink-soft">{t("Quality-first generation can take a minute or more · ")}{formatSeconds(elapsed)}</p>
               <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
                 <motion.div className="h-full w-1/3 rounded-full bg-gradient-to-r from-lilac to-accent"
                   animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }} />

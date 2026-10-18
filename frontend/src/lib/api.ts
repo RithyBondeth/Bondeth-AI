@@ -6,6 +6,8 @@
  * tokens are single-use, so concurrent refreshes share one request) and retries.
  */
 
+import { getLocale } from "./i18n";
+
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 export type User = { id: string; email: string; full_name: string | null; email_verified: boolean; created_at: string };
@@ -133,6 +135,8 @@ export async function api(path: string, init: RequestInit & { auth?: AuthMode } 
 
   const send = async (withToken: boolean) => {
     const headers = new Headers(rest.headers);
+    // Use the explicit interface preference, including signed-out recovery requests.
+    headers.set("Accept-Language", getLocale());
     const current = readSession();
     if (withToken && current) headers.set("Authorization", `Bearer ${current.access}`);
     try {
