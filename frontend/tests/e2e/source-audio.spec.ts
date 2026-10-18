@@ -33,6 +33,7 @@ async function setup(page: Page, status: TranscriptionDetail["source_audio_statu
       if (method === "PATCH") {
         server.patches++;
         const body = request.postDataJSON();
+        if (body.revision !== server.document.revision) return route.fulfill({ status: 409, json: { detail: "Changed elsewhere" }, headers });
         server.document = { ...server.document, segments: body.segments, transcribed_text: body.segments.map((s: {text: string}) => s.text).join(" "), revision: server.document.revision + 1 };
       }
       return route.fulfill({ json: server.document, headers });
@@ -158,4 +159,54 @@ test("signing out in another tab stops playback and revokes its private blob URL
   await expect(page.getByText("Sign in to continue", { exact: true })).toBeVisible();
   expect(await element.evaluate((el: HTMLAudioElement) => el.paused && !el.getAttribute("src"))).toBe(true);
   expect(await page.evaluate(() => (window as unknown as {revokedSourceUrls: string[]}).revokedSourceUrls)).toContain(src);
+});
+
+test("playback position sets timing and highlighting stays correct after merge, split and undo", async ({ page }) => {
+  const server = await setup(page);
+  await page.getByRole("button", { name: "Play segment 2", exact: true }).click();
+  await page.getByRole("button", { name: "Pause source audio", exact: true }).click();
+  await page.getByRole("slider", { name: "Source audio position", exact: true }).fill("4.5");
+  await page.getByRole("radio", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Edit timing for segment 2", exact: true }).click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Use playback for start", exact: true }).click();
+  await expect(dialog.getByRole("textbox", { name: "Start time", exact: true })).toHaveValue("00:00:04.500");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Apply timing", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 2", exact: true })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("button", { name: "Merge segment 1 with next", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 1", exact: true })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 2", exact: true })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("button", { name: "Split segment 2", exact: true }).click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Split time", exact: true }).fill("5.25");
+  await dialog.getByRole("button", { name: "Apply split", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 2", exact: true })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("slider", { name: "Source audio position", exact: true }).fill("5.5");
+  await expect(page.getByRole("button", { name: "Play segment 3", exact: true })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 2", exact: true })).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  expect(server.document.segments![1].start).toBe(4.5);
+  expect(server.requests).toBe(1);
+});
+
+test("loading a remotely retimed version clears local undo and refreshes paused highlighting", async ({ page }) => {
+  const server = await setup(page);
+  await page.getByRole("button", { name: "Play segment 1", exact: true }).click();
+  await page.getByRole("button", { name: "Pause source audio", exact: true }).click();
+  await page.getByRole("slider", { name: "Source audio position", exact: true }).fill("1");
+  await page.getByRole("radio", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 1", exact: true })).toHaveAttribute("aria-current", "true");
+  server.document = { ...server.document, revision: 2, transcribed_text: "Remote first Second phrase",
+    segments: [{ start: 1.5, end: 2.5, text: "Remote first" }, server.document.segments![1]] };
+  await page.getByRole("textbox", { name: "Segment 1 text", exact: true }).fill("My local correction");
+  await page.getByRole("button", { name: "Load saved version", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Segment 1 text", exact: true })).toHaveValue("Remote first");
+  await expect(page.locator('button[aria-current="true"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Play segment 1", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Play segment 1", exact: true })).toHaveAttribute("aria-current", "true");
+  expect(server.requests).toBe(1);
 });

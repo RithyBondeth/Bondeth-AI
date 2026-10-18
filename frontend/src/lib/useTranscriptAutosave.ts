@@ -9,6 +9,13 @@ import type { TranscriptDocument, TranscriptDraft, TranscriptionDetail } from "@
 type Status = "saved" | "pending" | "saving" | "error" | "conflict";
 const serialize = (draft: TranscriptDraft) => JSON.stringify(draft);
 const fromDocument = (document: TranscriptDocument) => transcriptDraft(document.transcribed_text, document.segments);
+type UndoEntry = { draft: TranscriptDraft; size: number };
+function pushHistory(stack: UndoEntry[], draft: TranscriptDraft) {
+  stack.push({ draft, size: serialize(draft).length * 2 });
+  let size = stack.reduce((total, entry) => total + entry.size, 0);
+  // Keep at least one undo for large transcripts; bound normal history to 4 MiB / 50 steps.
+  while (stack.length > 1 && (stack.length > 50 || size > 4 * 1024**2)) size -= stack.shift()!.size;
+}
 
 function initialDraft(document: TranscriptDocument, key: string | null) {
   const saved = fromDocument(document);
@@ -36,6 +43,9 @@ export function useTranscriptAutosave(document: TranscriptDocument, ownerId: str
   const [status, setStatus] = useState<Status>(initial.conflict ? "conflict" : "saved");
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  const history = useRef({ past: [] as UndoEntry[], future: [] as UndoEntry[], group: undefined as string | undefined, time: 0 });
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const machine = useRef({ draft: initial.draft, savedKey: serialize(fromDocument(document)), revision: document.revision,
     conflict: initial.conflict, mounted: true, inFlight: null as Promise<boolean> | null });
   const id = document.id;
@@ -94,11 +104,34 @@ export function useTranscriptAutosave(document: TranscriptDocument, ownerId: str
     return success && serialize(current.draft) !== current.savedKey ? persist() : success;
   }, [id, ownerId, remember]);
 
-  const edit = (next: TranscriptDraft) => {
+  const applyDraft = (next: TranscriptDraft) => {
     machine.current.draft = next;
     setDraft(next);
     if (!machine.current.conflict) { setStatus("pending"); setError(null); }
     remember();
+  };
+
+  const edit = (next: TranscriptDraft, group?: string) => {
+    if (serialize(next) === serialize(machine.current.draft)) return;
+    const current = history.current;
+    if (!group || group !== current.group || Date.now() - current.time > 1000 || current.future.length)
+      pushHistory(current.past, machine.current.draft);
+    current.future = []; current.group = group; current.time = Date.now();
+    setCanUndo(current.past.length > 0); setCanRedo(false);
+    applyDraft(next);
+  };
+
+  const travel = (back: boolean): TranscriptDraft | undefined => {
+    if (resolving) return;
+    const current = history.current;
+    const source = back ? current.past : current.future;
+    const entry = source.pop();
+    if (!entry) return;
+    pushHistory(back ? current.future : current.past, machine.current.draft);
+    current.group = undefined;
+    setCanUndo(current.past.length > 0); setCanRedo(current.future.length > 0);
+    applyDraft(entry.draft);
+    return entry.draft;
   };
 
   useEffect(() => {
@@ -136,13 +169,19 @@ export function useTranscriptAutosave(document: TranscriptDocument, ownerId: str
       current.savedKey = serialize(fromDocument(response));
       current.revision = response.revision;
       current.conflict = false;
-      if (!keepDraft) { current.draft = fromDocument(response); setDraft(current.draft); }
+      if (!keepDraft) {
+        current.draft = fromDocument(response); setDraft(current.draft);
+        history.current = { past: [], future: [], group: undefined, time: 0 };
+        setCanUndo(false); setCanRedo(false);
+      }
       setSaved(response); setSavedKey(current.savedKey); setError(null); setStatus("saved");
       remember();
       if (keepDraft) await save();
+      return current.draft;
     } catch (err) { setError(err instanceof Error ? err.message : "Couldn't load the saved transcript."); }
     finally { setResolving(false); }
   };
 
-  return { draft, saved, dirty, status, error, resolving, edit, save, resolveConflict };
+  return { draft, saved, dirty, status, error, resolving, edit, save, resolveConflict,
+    canUndo, canRedo, undo: () => travel(true), redo: () => travel(false) };
 }

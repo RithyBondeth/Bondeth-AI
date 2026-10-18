@@ -8,7 +8,7 @@ import { formatSeconds } from "@/lib/format";
 import { useT } from "@/lib/useLocale";
 import type { TranscriptionDetail } from "@/lib/types";
 
-export type TranscriptPlayback = { seek: (time: number) => void };
+export type TranscriptPlayback = { seek: (time: number) => void; position: () => number | null };
 
 /** Fetch only through the authenticated API; URLs and playback never outlive the editor. */
 export const TranscriptAudio = forwardRef<TranscriptPlayback, {
@@ -87,7 +87,8 @@ export const TranscriptAudio = forwardRef<TranscriptPlayback, {
     try { await audio.current.play(); }
     catch { if (!request.current?.signal.aborted) setError("Couldn't play source audio. Try again."); }
   };
-  useImperativeHandle(ref, () => ({ seek: (time) => { void play(time); } }));
+  useImperativeHandle(ref, () => ({ seek: (time) => { void play(time); },
+    position: () => audio.current && audio.current.readyState >= 1 ? audio.current.currentTime : null }));
 
   const remove = async () => {
     setRemoving(true); setError(null); audio.current?.pause();
