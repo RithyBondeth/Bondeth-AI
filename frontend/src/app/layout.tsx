@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Kantumruy_Pro, Ubuntu } from "next/font/google";
+import { Suspense } from "react";
+import { LocaleEffects } from "@/components/LocaleEffects";
+import { localeInitScript } from "@/lib/i18n";
 
 import { MotionProvider } from "@/components/MotionProvider";
 import { ToastProvider } from "@/components/ui";
@@ -34,10 +37,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" data-theme="light" suppressHydrationWarning className={`${ubuntu.variable} ${khmer.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: localeInitScript }} />
       </head>
       <body className="min-h-dvh antialiased">
         <MotionProvider>
           <ToastProvider>{children}</ToastProvider>
+          <Suspense fallback={null}><LocaleEffects /></Suspense>
         </MotionProvider>
       </body>
     </html>

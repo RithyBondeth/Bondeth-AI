@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { ArrowRight, Check } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
@@ -36,6 +38,7 @@ const USES = [
 ] as const;
 
 export function CreativeUses() {
+  const t = useT();
   const [selected, setSelected] = useState(0);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const id = useId();
@@ -60,12 +63,11 @@ export function CreativeUses() {
   return (
     <section id="ideas" aria-labelledby={`${id}-heading`} className="grid items-start gap-8 border-t border-line py-16 sm:gap-12 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
       <div className="lg:pt-4">
-        <p className="text-xs font-medium tracking-wide text-accent">A place for your next idea</p>
-        <h2 id={`${id}-heading`} className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">What will you make?</h2>
+        <p className="text-xs font-medium tracking-wide text-accent">{t("A place for your next idea")}</p>
+        <h2 id={`${id}-heading`} className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("What will you make?")}</h2>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-soft">
-          A story to tell, a thought to save, or an app to build. Start with your words.
-        </p>
-        <div role="tablist" aria-label="Ways to use Bondeth" aria-orientation="vertical" className="mt-7 space-y-2">
+          {t("A story to tell, a thought to save, or an app to build. Start with your words.")}</p>
+        <div role="tablist" aria-label={t("Ways to use Bondeth")} aria-orientation="vertical" className="mt-7 space-y-2">
           {USES.map((item, index) => (
             <button key={item.title} type="button" role="tab" id={`${id}-tab-${index}`}
               aria-selected={selected === index} aria-controls={`${id}-panel`} tabIndex={selected === index ? 0 : -1}
@@ -76,8 +78,8 @@ export function CreativeUses() {
               <span aria-hidden className={cx("grid size-8 shrink-0 place-items-center rounded-lg border text-xs tabular-nums",
                 selected === index ? "border-ink/30 bg-accent text-accent-ink" : "border-line text-ink-soft")}>0{index + 1}</span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold">{item.title}</span>
-                <span className="mt-1 block text-xs leading-relaxed text-ink-soft">{item.hint}</span>
+                <span className="block text-sm font-bold">{t(item.title)}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-ink-soft">{t(item.hint)}</span>
               </span>
               <ArrowRight aria-hidden className={cx("size-4 shrink-0 transition-transform", selected === index ? "text-ink" : "text-ink-faint group-hover:translate-x-1")} />
             </button>
@@ -90,18 +92,18 @@ export function CreativeUses() {
         <motion.div key={active.title} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
           <div className="relative bg-accent-soft/25 px-5 pt-5">
             <span className="inline-flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink-soft">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{active.audience}
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{t(active.audience)}
             </span>
-            <Art className="mx-auto h-56 w-full sm:h-64 lg:h-72" label={active.label} sizes="(max-width: 767px) 90vw, 540px" />
+            <Art className="mx-auto h-56 w-full sm:h-64 lg:h-72" label={t(active.label)} sizes="(max-width: 767px) 90vw, 540px" />
           </div>
           <div className="border-t border-line px-5 py-6 sm:px-7">
-            <h3 className="max-w-md text-xl font-bold leading-snug tracking-tight">{active.heading}</h3>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft">{active.description}</p>
+            <h3 className="max-w-md text-xl font-bold leading-snug tracking-tight">{t(active.heading)}</h3>
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft">{t(active.description)}</p>
             <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-ink-soft">
-              {[active.detail, active.secondDetail].map((detail) => <li key={detail} className="flex items-center gap-1.5"><Check aria-hidden className="size-3.5 text-accent" />{detail}</li>)}
+              {[active.detail, active.secondDetail].map((detail) => <li key={detail} className="flex items-center gap-1.5"><Check aria-hidden className="size-3.5 text-accent" />{t(detail)}</li>)}
             </ul>
             <Link href={active.href} className="mt-6 inline-flex items-center gap-2 border-b-2 border-accent pb-1 text-sm font-medium transition-colors hover:text-accent">
-              {active.action}<ArrowRight aria-hidden className="size-4" />
+              {t(active.action)}<ArrowRight aria-hidden className="size-4" />
             </Link>
           </div>
         </motion.div>

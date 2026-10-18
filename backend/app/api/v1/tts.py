@@ -1,16 +1,20 @@
 from typing import Literal
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.config import Settings, get_settings
+from app.auth import get_optional_user
+from app.db import User
 from app.deps import get_tts_cache, get_tts_service
 from app.limits import Caller, Limits, get_limits, rate_limit
 from app.services.tts import NothingToSpeak, TtsService, to_wav_bytes
 from app.services.tts_cache import TtsCache
 from app.services.errors import EngineUnavailable, SpeechGenerationError
+from app.services.audio_library import FALLBACK_NOTICE, save_audio
 
 router = APIRouter(prefix="/tts", tags=["text-to-speech"])
 
@@ -36,11 +40,13 @@ def _check_length(req: TtsRequest, settings: Settings) -> None:
 @router.post("", response_class=Response, responses={200: {"content": {"audio/wav": {}}}})
 async def text_to_speech(
     req: TtsRequest,
+    request: Request,
     settings: Settings = Depends(get_settings),
     tts: TtsService = Depends(get_tts_service),
     cache: TtsCache = Depends(get_tts_cache),
     caller: Caller = Depends(rate_limit("tts")),
     limits: Limits = Depends(get_limits),
+    user: User | None = Depends(get_optional_user),
 ) -> Response:
     """Public. Counts against the daily text-to-speech allowance (see GET /usage).
 
@@ -51,6 +57,7 @@ async def text_to_speech(
     _, chunks = tts.prepare(req.text, req.lang)
     key = cache.key(chunks, req.speed)
     engine, fallback = tts.engine, "none"
+    audio_id = None
     async with limits.spend("tts_chars", caller, len(req.text)):
         if cached := await cache.get(key):
             wav, duration = cached
@@ -71,6 +78,20 @@ async def text_to_speech(
             if fallback == "none":
                 await cache.put(cache.key(chunks, req.speed), wav, duration)
 
+        if user is not None:
+            voice = "MMS fallback — different voice" if fallback != "none" else {
+                "mms": "MMS", "omnivoice": "OmniVoice", "voxcpm": "VoxCPM2",
+            }.get(engine, "Standard voice")
+            try:
+                async with request.app.state.sessionmaker() as session:
+                    audio_id = await save_audio(
+                        session, settings.data_dir, user.id, uuid.uuid4(), wav,
+                        kind="tts", text=req.text, voice=voice, language=req.lang, speed=req.speed,
+                        duration=duration, engine=engine, notice=FALLBACK_NOTICE if fallback != "none" else None,
+                    )
+            except Exception as exc:
+                raise HTTPException(503, "Couldn't save your speech to the audio library. Please try again.") from exc
+
     return Response(
         content=wav,
         media_type="audio/wav",
@@ -80,6 +101,7 @@ async def text_to_speech(
             "X-Cache": "BYPASS" if fallback != "none" else ("HIT" if cached else "MISS"),
             "X-TTS-Engine": engine,
             "X-TTS-Fallback": fallback,
+            **({"X-Audio-Id": str(audio_id)} if audio_id else {}),
         },
     )
 

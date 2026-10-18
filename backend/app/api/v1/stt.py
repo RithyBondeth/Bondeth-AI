@@ -83,7 +83,8 @@ async def speech_to_text(
     if user is not None and result.text:
         async with request.app.state.sessionmaker() as session:
             row = Transcription(user_id=user.id, language_code=result.language,
-                                transcribed_text=result.text, audio_duration_seconds=result.duration)
+                                transcribed_text=result.text, audio_duration_seconds=result.duration,
+                                segments=[vars(s) for s in result.segments] or None, segmented_text=result.segmented_text)
             session.add(row)
             await session.commit()
             transcription_id = row.id
@@ -123,7 +124,8 @@ async def _save_history(job: SttJob, request: Request) -> str | None:
             return None
         await session.execute(insert(Transcription).values(
             user_id=owner, source_job_id=job.id, language_code=body["detected_language"],
-            transcribed_text=body["text"], audio_duration_seconds=body["duration"]
+            transcribed_text=body["text"], audio_duration_seconds=body["duration"],
+            segments=body.get("segments") or None, segmented_text=body.get("segmented_text")
         ).on_conflict_do_nothing(index_elements=[Transcription.source_job_id]))
         row_id = await session.scalar(select(Transcription.id).where(Transcription.source_job_id == job.id))
         await session.commit()

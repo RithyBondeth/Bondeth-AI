@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { Mic, Square } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -51,11 +53,12 @@ registerProcessor("pcm16-downsampler", Pcm16Downsampler);
 
 type Final = { text: string; segmented_text: string; start: number; end: number };
 type Status = "idle" | "connecting" | "live" | "finishing";
-type Done = { text: string; segmented_text: string; language: string | null; duration: number; transcription_id: string | null };
+type Done = { text: string; segmented_text: string; language: string | null; duration: number; transcription_id: string | null; segments?: SttResult["segments"] };
 
 type Resources = { ws?: WebSocket; stream?: MediaStream; ctx?: AudioContext; timer?: ReturnType<typeof setInterval> };
 
 export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: SttResult | null) => void }) {
+  const t = useT();
   const toast = useToast();
   const hydrated = useHydrated();
   const [status, setStatus] = useState<Status>("idle");
@@ -156,7 +159,7 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
             onResult({
               detected_language: done.language ?? "km", language_probability: 1, duration: done.duration,
               text: done.text, segmented_text: done.segmented_text, transcription_id: done.transcription_id,
-              segments: [],
+              segments: done.segments ?? [],
             });
             if (done.transcription_id) toast("Saved to your history", "success");
           } else {
@@ -198,8 +201,8 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
 
   return (
     <Panel>
-      <PanelHeader title="Live dictation" km="និយាយ → អក្សរ">
-        {language && <Badge tone="teal">{LANG_LABEL[language] ?? language}</Badge>}
+      <PanelHeader title={t("Live dictation")} km="និយាយ → អក្សរ">
+        {language && <Badge tone="teal">{t(LANG_LABEL[language] ?? language)}</Badge>}
         {status !== "idle" && <Badge>{formatSeconds(seconds)}</Badge>}
       </PanelHeader>
       <div className="flex flex-col items-center gap-4 p-5">
@@ -213,17 +216,17 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
           </AnimatePresence>
           <motion.button type="button" whileTap={{ scale: 0.94 }} onClick={live ? stop : start}
             disabled={!hydrated || status === "connecting" || status === "finishing"}
-            aria-label={live ? "Stop dictation" : "Start dictation"}
+            aria-label={live ? t("Stop dictation") : t("Start dictation")}
             className={cx("relative grid size-20 place-items-center rounded-full text-accent-ink shadow-panel transition-colors disabled:opacity-60",
               live ? "bg-rose" : "bg-accent")}>
             {live ? <Square className="size-7 fill-current" /> : <Mic className="size-8" />}
           </motion.button>
         </div>
         <p className="text-sm text-ink-soft" aria-live="polite">
-          {status === "idle" && "Tap and start talking. Text appears as you speak."}
-          {status === "connecting" && "Starting the microphone…"}
-          {live && "Listening. Pause briefly between sentences; tap to stop."}
-          {status === "finishing" && "Finishing the last words…"}
+          {status === "idle" && t("Tap and start talking. Text appears as you speak.")}
+          {status === "connecting" && t("Starting the microphone…")}
+          {live && t("Listening. Pause briefly between sentences; tap to stop.")}
+          {status === "finishing" && t("Finishing the last words…")}
         </p>
 
         {(status !== "idle" || words) && (
@@ -236,10 +239,10 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
               <motion.span aria-hidden className="ml-1 inline-block h-5 w-0.5 translate-y-1 bg-accent"
                 animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }} />
             )}
-            {!words && !partial && <span className="text-ink-faint">Your words will appear here…</span>}
+            {!words && !partial && <span className="text-ink-faint">{t("Your words will appear here…")}</span>}
           </div>
         )}
-        {status === "finishing" && <Button variant="ghost" size="sm" loading>Finishing</Button>}
+        {status === "finishing" && <Button variant="ghost" size="sm" loading>{t("Finishing")}</Button>}
       </div>
     </Panel>
   );

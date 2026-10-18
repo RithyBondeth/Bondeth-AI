@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, Copy, Download, History, Wand2 } from "lucide-react";
+import { useT } from "@/lib/useLocale";
+
+import { History, Wand2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -8,21 +10,22 @@ import { useEffect, useRef, useState } from "react";
 import { AudioInput, type AudioClip } from "@/components/audio/AudioInput";
 import { NotebookDoodle, SpeakerDoodle, WaveformDoodle } from "@/components/doodles";
 import { LiveDictation } from "@/components/studios/LiveDictation";
+import { SavedTranscript } from "@/components/studios/SavedTranscript";
+import { TranscriptEditor } from "@/components/studios/TranscriptEditor";
 import { Intro, errorText } from "@/components/studios/shared";
 import {
-  Badge, Button, EmptyState, IconButton, LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, cx, useToast,
+  Badge, Button, EmptyState, LANGUAGE_OPTIONS, Panel, PanelHeader, Segmented, Setting, cx, useToast,
 } from "@/components/ui";
 import { apiJson, streamEvents } from "@/lib/api";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
 import { useUser } from "@/lib/hooks";
 import type { Lang, SttJob, SttResult, SttSegment } from "@/lib/types";
 
-type View = "text" | "words" | "timeline";
-
 /** What's known while a job runs: its place in line, then the language and segments as they arrive. */
 type Live = { position: number | null; info: { detected_language: string; duration: number } | null; segments: SttSegment[] };
 
 export function SttStudio() {
+  const t = useT();
   const toast = useToast();
   const user = useUser();
   const [clip, setClip] = useState<AudioClip | null>(null);
@@ -74,17 +77,17 @@ export function SttStudio() {
 
   return (
     <>
-      <Intro>Dictate live, or record and upload audio, in Khmer or English. Khmer comes back as clean text, with optional word boundaries.</Intro>
+      <Intro>{t("Dictate live, or record and upload audio, in Khmer or English. Khmer comes back as clean text, with optional word boundaries.")}</Intro>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
-          <Segmented label="Input" value={mode} onChange={(m) => { abortRef.current?.abort(); setMode(m); setResult(null); setBusy(false); setLive(null); }}
-            options={[{ value: "live", label: "Live dictation" }, { value: "file", label: "Record or upload" }]} />
+          <Segmented label={t("Input")} value={mode} onChange={(m) => { abortRef.current?.abort(); setMode(m); setResult(null); setBusy(false); setLive(null); }}
+            options={[{ value: "live", label: t("Live dictation") }, { value: "file", label: t("Record or upload") }]} />
           {mode === "live" ? (
             <LiveDictation lang={lang} onResult={setResult} />
           ) : (
           <Panel>
-            <PanelHeader title="Audio" km="សំឡេង" />
+            <PanelHeader title={t("Audio")} km="សំឡេង" />
             <div className="space-y-4 p-5">
               <AudioInput value={clip} onChange={(c) => {
                 abortRef.current?.abort();
@@ -95,7 +98,7 @@ export function SttStudio() {
               }} />
               <Button className="w-full" size="lg" onClick={transcribe} disabled={!clip} loading={busy}
                 icon={<Wand2 className="size-5" />}>
-                {busy ? "Listening closely…" : "Transcribe"}
+                {busy ? t("Listening closely…") : t("Transcribe")}
               </Button>
             </div>
           </Panel>
@@ -111,19 +114,18 @@ export function SttStudio() {
                   <WaveformDoodle className="h-14 w-36 text-ink" />
                 </motion.div>
                 {live?.info
-                  ? "Listening… the first words will appear here in a moment."
+                  ? t("Listening… the first words will appear here in a moment.")
                   : live?.position && live.position > 1
-                    ? `In line: ${live.position - 1} ahead of you.`
-                    : "Uploading and starting up…"}
+                    ? t("In line: {count} ahead of you.", { count: live.position - 1 })
+                    : t("Uploading and starting up…")}
               </motion.div>
             ) : result?.text ? (
               <Transcript key={result.text} result={result} />
             ) : mode === "live" ? null : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <Panel>
-                  <EmptyState doodle={<SpeakerDoodle className="h-32 w-44 text-ink" />} title="Your transcript will appear here">
-                    Pick a language on the right, or leave it on Auto to detect Khmer or English.
-                  </EmptyState>
+                  <EmptyState doodle={<SpeakerDoodle className="h-32 w-44 text-ink" />} title={t("Your transcript will appear here")}>
+                    {t("Pick a language on the right, or leave it on Auto to detect Khmer or English.")}</EmptyState>
                 </Panel>
               </motion.div>
             )}
@@ -132,13 +134,13 @@ export function SttStudio() {
 
         <aside className="space-y-6">
           <Panel>
-            <PanelHeader title="Settings" />
+            <PanelHeader title={t("Settings")} />
             <div className="space-y-6 p-5">
-              <Setting label="Language">
-                <Segmented full label="Language" value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
+              <Setting label={t("Language")}>
+                <Segmented full label={t("Language")} value={lang} onChange={setLang} options={LANGUAGE_OPTIONS} />
               </Setting>
-              <Setting label="Limits">
-                <p className="text-sm text-ink-soft">Up to 200 MB per file: .wav, .mp3, .m4a, .webm, .ogg, .flac. Long recordings stream in as they&apos;re transcribed.</p>
+              <Setting label={t("Limits")}>
+                <p className="text-sm text-ink-soft">{t("Up to 200 MB per file: .wav, .mp3, .m4a, .webm, .ogg, .flac. Long recordings stream in as they're transcribed.")}</p>
               </Setting>
             </div>
           </Panel>
@@ -146,13 +148,13 @@ export function SttStudio() {
             <div className="flex items-center gap-4 p-5">
               <NotebookDoodle className="h-16 w-20 shrink-0 text-ink" />
               <div>
-                <p className="text-sm font-medium">{user ? "History is on" : "Keep a history"}</p>
+                <p className="text-sm font-medium">{user ? t("History is on") : t("Keep a history")}</p>
                 <p className="text-xs text-ink-soft">
-                  {user ? "Every transcript is saved to your library." : "Sign in and transcripts are saved automatically."}
+                  {user ? t("Every transcript is saved to your library.") : t("Sign in and transcripts are saved automatically.")}
                 </p>
                 <Link href={user ? "/history" : "/login?next=/stt"}
                   className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
-                  <History className="size-3.5" /> {user ? "Open history" : "Sign in"}
+                  <History className="size-3.5" /> {user ? t("Open history") : t("Sign in")}
                 </Link>
               </div>
             </div>
@@ -164,17 +166,18 @@ export function SttStudio() {
 }
 
 function LiveTranscript({ live }: { live: Live }) {
+  const t = useT();
   const isKhmer = live.info?.detected_language === "km";
   const done = live.segments.at(-1)?.end ?? 0;
   const share = live.info?.duration ? Math.min(done / live.info.duration, 1) : 0;
 
   return (
     <Panel exit={{ opacity: 0, y: -8 }}>
-      <PanelHeader title="Transcribing" km="កំពុងសរសេរ">
-        {live.info && <Badge tone="teal">{LANG_LABEL[live.info.detected_language] ?? live.info.detected_language}</Badge>}
+      <PanelHeader title={t("Transcribing")} km="កំពុងសរសេរ">
+        {live.info && <Badge tone="teal">{t(LANG_LABEL[live.info.detected_language] ?? live.info.detected_language)}</Badge>}
         {live.info && <Badge>{formatSeconds(done)} / {formatSeconds(live.info.duration)}</Badge>}
       </PanelHeader>
-      <div className="h-1 bg-surface-2" role="progressbar" aria-label="Transcription progress"
+      <div className="h-1 bg-surface-2" role="progressbar" aria-label={t("Transcription progress")}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)}>
         <motion.div className="h-full bg-accent" initial={false} animate={{ width: `${share * 100}%` }} />
       </div>
@@ -190,66 +193,10 @@ function LiveTranscript({ live }: { live: Live }) {
 }
 
 function Transcript({ result }: { result: SttResult }) {
-  const toast = useToast();
-  const isKhmer = result.detected_language === "km";
-  const [view, setView] = useState<View>("text");
-  const [copied, setCopied] = useState(false);
-  const text = view === "words" ? result.segmented_text : result.text;
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast("Copied to clipboard", "success");
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: "transcript.txt" });
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const views: { value: View; label: string }[] = [
-    { value: "text", label: "Text" },
-    ...(isKhmer ? [{ value: "words" as const, label: "Words" }] : []),
-    ...(result.segments.length > 1 ? [{ value: "timeline" as const, label: "Timeline" }] : []),
-  ];
-
-  return (
-    <Panel exit={{ opacity: 0, y: -8 }}>
-      <PanelHeader title="Transcript" km="អត្ថបទ">
-        <Badge tone="teal">{LANG_LABEL[result.detected_language] ?? result.detected_language}</Badge>
-        <Badge>{formatSeconds(result.duration)}</Badge>
-        {result.transcription_id && <Badge tone="accent">Saved</Badge>}
-      </PanelHeader>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5">
-        {views.length > 1 && <Segmented label="View" value={view} onChange={setView} options={views} />}
-        <div className="ml-auto flex gap-1">
-          <IconButton label="Download as .txt" onClick={download}><Download className="size-4" /></IconButton>
-          <IconButton label="Copy" onClick={copy}>{copied ? <Check className="size-4 text-teal" /> : <Copy className="size-4" />}</IconButton>
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div key={view} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }} className="p-5">
-          {view === "timeline" ? (
-            <ol className="space-y-3">
-              {result.segments.map((s, i) => (
-                <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-                  className="grid grid-cols-[88px_1fr] gap-3 text-sm">
-                  <span className="tabular-nums text-ink-soft">{formatSeconds(s.start)} – {formatSeconds(s.end)}</span>
-                  <span className={cx(isKhmer && "khmer")}>{s.text}</span>
-                </motion.li>
-              ))}
-            </ol>
-          ) : (
-            <p lang={isKhmer ? "km" : "en"} className={cx("text-lg leading-relaxed", isKhmer && "khmer")}>{text}</p>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </Panel>
-  );
+  const user = useUser();
+  if (result.transcription_id && user) return <SavedTranscript id={result.transcription_id} />;
+  return <TranscriptEditor ownerId={null} document={{ id: null, language_code: result.detected_language,
+    transcribed_text: result.text, segments: result.segments.length ? result.segments : null,
+    segmented_text: result.segmented_text, audio_duration_seconds: result.duration, revision: 1,
+    updated_at: null, created_at: "" }} />;
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import Image from "next/image";
 import type { ComponentProps } from "react";
 
@@ -15,7 +17,8 @@ const SPARKLE = "M12 2 Q13 11 22 12 Q13 13 12 22 Q11 13 2 12 Q11 11 12 2 Z";
 function Illustration({ name, className, label, hero = false, sizes, loading }: Props & {
   name: string; hero?: boolean; sizes?: string; loading?: "lazy" | "eager";
 }) {
-  return <Image src={`/illustrations/${name}.png`} alt={label ?? ""}
+  const t = useT();
+  return <Image src={`/illustrations/${name}.png`} alt={label ? t(label) : ""}
     width={1448} height={1086} preload={hero} loading={loading}
     sizes={sizes ?? (hero ? "(max-width: 1023px) 90vw, 540px" : "(max-width: 767px) 80vw, 384px")}
     className={`illustration-art object-contain ${className ?? ""}`} />;
@@ -102,9 +105,10 @@ export function UnlockDoodle(props: Props) {
 }
 
 export function HeroScene({ className }: { className?: string }) {
+  const t = useT();
   return <div className={`overflow-hidden ${className ?? ""}`}>
     <Illustration name="voice-studio-doodle-v2" className="h-auto w-full scale-[1.14]" hero
-      label="A hand-drawn Cambodian speaker at a microphone, with an audio speech bubble and notebook page" />
+      label={t("A hand-drawn Cambodian speaker at a microphone, with an audio speech bubble and notebook page")} />
   </div>;
 }
 

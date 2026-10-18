@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_keys, auth, billing as billing_api, clone, health, live, stt, text, transcriptions, tts, usage, voices
+from app.api.v1 import api_keys, audio, auth, billing as billing_api, clone, health, live, stt, text, transcriptions, tts, usage, voices
 from app.config import get_settings
 from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
@@ -15,6 +15,7 @@ from app.limits import LimitExceeded, limit_exceeded_handler
 from app.services.clone_jobs import CloneJobQueue
 from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
+from app.services.audio_library import CloneAudioLibrary
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
     app.state.clone_queue = CloneJobQueue(
         sync_redis, get_clone_service().run, settings.data_dir / "clone_jobs",
         max_pending=settings.clone_max_queue, ttl_s=settings.clone_result_ttl_s, billing=billing,
+        library=CloneAudioLibrary(settings.database_url, settings.data_dir, settings.clone_engine),
     )
     app.state.stt_queue = SttJobQueue(
         sync_redis, get_stt_service(), settings.data_dir / "stt_jobs",
@@ -75,11 +77,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["Retry-After", "X-Cache", "X-TTS-Engine", "X-TTS-Fallback", "X-Audio-Duration"],
+        expose_headers=["Retry-After", "X-Cache", "X-TTS-Engine", "X-TTS-Fallback", "X-Audio-Duration", "X-Audio-Id"],
     )
     app.add_exception_handler(LimitExceeded, limit_exceeded_handler)
 
-    for router in (health, auth, billing_api, api_keys, text, stt, live, transcriptions, tts, voices, clone, usage):
+    for router in (health, auth, billing_api, api_keys, text, stt, live, transcriptions, audio, tts, voices, clone, usage):
         app.include_router(router.router, prefix="/api/v1")
     return app
 

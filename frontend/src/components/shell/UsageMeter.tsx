@@ -1,5 +1,8 @@
 "use client";
 
+import { formatTime } from "@/lib/format";
+import { useT } from "@/lib/useLocale";
+
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +19,7 @@ const ROWS: { name: QuotaName; label: string; format: (n: number) => string; uni
 
 /** Today's allowances in the sidebar. Hidden when the server has limits switched off. */
 export function UsageMeter({ className }: { className?: string }) {
+  const t = useT();
   const usage = useUsage();
   const pathname = usePathname();
   const rows = ROWS.flatMap((row) => {
@@ -27,7 +31,7 @@ export function UsageMeter({ className }: { className?: string }) {
   return (
     <div className={cx("rounded-2xl border border-line bg-surface p-4", className)}>
       <p className="flex items-baseline justify-between text-sm font-medium">
-        {usage.plan === "pro" ? "Pro allowance" : "Today's allowance"} <span className="khmer text-[11px] font-normal text-ink-faint">ថ្ងៃនេះ</span>
+        {usage.plan === "pro" ? t("Pro allowance") : t("Today's allowance")} <span className="khmer text-[11px] font-normal text-ink-faint">ថ្ងៃនេះ</span>
       </p>
       <ul className="mt-3 space-y-2.5">
         {rows.map(({ name, label, format, unit, used, limit }) => {
@@ -35,14 +39,14 @@ export function UsageMeter({ className }: { className?: string }) {
           return (
             <li key={name}>
               <div className="flex items-baseline justify-between gap-2 text-xs">
-                <span className="text-ink-soft">{label}</span>
+                <span className="text-ink-soft">{t(label)}</span>
                 <span className="tabular-nums">
                   <span className={cx(share >= 0.9 && "font-medium text-rose")}>{format(used)}</span>
-                  <span className="text-ink-faint"> / {format(limit)}{unit && ` ${unit}`}</span>
+                  <span className="text-ink-faint"> / {format(limit)}{unit && ` ${t(unit)}`}</span>
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2"
-                role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)}>
+                role="meter" aria-label={t(label)} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)}>
                 <motion.div className={cx("h-full rounded-full", share >= 0.9 ? "bg-rose" : "bg-accent")}
                   initial={false} animate={{ width: `${share * 100}%` }} transition={{ type: "spring", stiffness: 200, damping: 30 }} />
               </div>
@@ -51,20 +55,17 @@ export function UsageMeter({ className }: { className?: string }) {
         })}
       </ul>
       <p className="mt-3 text-[11px] leading-snug text-ink-faint">
-        Resets at {new Date(usage.resets_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.
+        {t("Resets at ")}{formatTime(usage.resets_at)}.
         {usage.account === "unverified" ? (
           <>
             {" "}
-            <Link href="/account" className="font-medium text-accent hover:underline">Confirm your email</Link> for more.
-          </>
+            <Link href="/account" className="font-medium text-accent hover:underline">{t("Confirm your email")}</Link> {t(" for more.")}</>
         ) : !usage.signed_in && (
           <>
             {" "}
             <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="font-medium text-accent hover:underline">
-              Sign in
-            </Link>{" "}
-            for more.
-          </>
+              {t("Sign in")}</Link>{" "}
+            {t("for more.")}</>
         )}
       </p>
     </div>

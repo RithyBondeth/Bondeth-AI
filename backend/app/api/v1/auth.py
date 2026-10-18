@@ -34,7 +34,7 @@ from app.security import (
     rotate_refresh_token,
     verify_password,
 )
-from app.services.email import EmailSender, get_email_sender, password_reset_email, verification_email
+from app.services.email import EmailLocale, EmailSender, email_locale, get_email_sender, password_reset_email, verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -100,11 +100,11 @@ def _client_ip(request: Request) -> str:
 
 
 async def _send_verification(user: User, redis: Redis, settings: Settings,
-                             background: BackgroundTasks, sender: EmailSender) -> None:
+                             background: BackgroundTasks, sender: EmailSender, locale: EmailLocale = "en") -> None:
     token = await create_one_time_token(redis, VERIFY, str(user.id), settings.email_verify_token_hours * 3600)
     link = f"{settings.public_app_url.rstrip('/')}/verify-email?token={token}"
     # Sent after the response, so a slow mail server never holds up sign-up.
-    background.add_task(sender.send, verification_email(user.email, link, settings.email_verify_token_hours))
+    background.add_task(sender.send, verification_email(user.email, link, settings.email_verify_token_hours, locale))
 
 
 @router.post("/register", status_code=201, response_model=AuthOut)
@@ -129,7 +129,7 @@ async def register(
     except IntegrityError as exc:
         raise HTTPException(409, "An account with this email already exists") from exc
     await session.refresh(user)
-    await _send_verification(user, redis, settings, background, sender)
+    await _send_verification(user, redis, settings, background, sender, email_locale(request.headers.get("accept-language")))
     tokens = await _tokens(user.id, redis, settings)
     return AuthOut(**tokens.model_dump(), user=UserOut.model_validate(user))
 
@@ -209,6 +209,7 @@ async def verify_email(req: TokenRequest, session: AsyncSession = Depends(get_db
 
 @router.post("/verify-email/resend", status_code=202)
 async def resend_verification(
+    request: Request,
     background: BackgroundTasks,
     user: User = Depends(get_session_user),
     redis: Redis = Depends(get_redis),
@@ -220,7 +221,7 @@ async def resend_verification(
         raise HTTPException(409, "Your email is already verified.")
     await limits.hit("verify-resend", Caller(f"user:{user.id}", True), limit=settings.auth_email_max_per_hour,
                      window=3600, message="Too many verification emails.")
-    await _send_verification(user, redis, settings, background, sender)
+    await _send_verification(user, redis, settings, background, sender, email_locale(request.headers.get("accept-language")))
     return {"status": "sent"}
 
 
@@ -246,7 +247,8 @@ async def request_password_reset(
     if user is not None:
         token = await create_one_time_token(redis, RESET, str(user.id), settings.password_reset_token_minutes * 60)
         link = f"{settings.public_app_url.rstrip('/')}/reset-password?token={token}"
-        background.add_task(sender.send, password_reset_email(user.email, link, settings.password_reset_token_minutes))
+        background.add_task(sender.send, password_reset_email(user.email, link, settings.password_reset_token_minutes,
+                                                             email_locale(request.headers.get("accept-language"))))
     return {"status": "sent", "detail": "If an account exists for that email, a reset link is on its way."}
 
 
@@ -304,5 +306,6 @@ async def delete_account(
     await session.delete(user)  # rows in other tables go with it (ON DELETE CASCADE)
     await session.commit()
     shutil.rmtree(settings.data_dir / "voices" / str(user_id), ignore_errors=True)
+    shutil.rmtree(settings.data_dir / "audio_library" / str(user_id), ignore_errors=True)
     # Outstanding tokens now fail: access tokens find no account, refresh tokens are refused above.
     return Response(status_code=204)

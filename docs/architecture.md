@@ -51,7 +51,7 @@ Separate API processes still load separate models and consume separate memory.
 ## Persistence and recovery
 
 PostgreSQL stores users, voice metadata and consent timestamps, transcription
-history, hashed API keys, per-key daily usage, subscription state, and webhook IDs.
+history, generated-audio metadata, hashed API keys, per-key daily usage, subscription state, and webhook IDs.
 Redis stores expiring auth tokens, quotas, TTS audio cache, job hashes, waiting and
 processing lists, and STT event streams. Audio/model files live on persistent volumes.
 
@@ -70,6 +70,22 @@ Redis, PostgreSQL, and filesystem writes.
 Completed signed-in STT jobs save history from the worker. A unique `source_job_id`
 also makes concurrent reader fallback inserts idempotent. History no longer depends
 on a browser staying connected. Job/event/audio TTLs remain one hour by default.
+
+Signed-in TTS outputs and completed clones are also archived to the account audio
+library: PostgreSQL metadata plus WAVs under `data/audio_library/<user-id>/`.
+Clone workers archive before marking a job done, independently of browser polling,
+and recover already-archived output by job ID without generating it again. Library
+audio does not expire with job/cache TTLs; it stays until the clip or account is deleted.
+The `/audio` API checks ownership for listing, downloads, and deletion. Transcript
+and audio searches filter the full account library before counting and paginating.
+
+New transcripts persist their timed segments and model-provided word boundaries
+for synchronous uploads, queued work, and live dictation. A revision-checked,
+row-locked update keeps concurrent editors from silently replacing one another.
+Editing timed text updates its canonical searchable text from the cues; original
+word boundaries are cleared when their text changes. Original recognition job
+results stay immutable and cannot overwrite later saved edits. Legacy transcripts
+remain text-editable, with missing timing represented as NULL rather than guessed.
 
 ## Accounts, plans and limits
 
