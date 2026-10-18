@@ -57,7 +57,7 @@ type Done = { text: string; segmented_text: string; language: string | null; dur
 
 type Resources = { ws?: WebSocket; stream?: MediaStream; ctx?: AudioContext; timer?: ReturnType<typeof setInterval> };
 
-export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: SttResult | null) => void }) {
+export function LiveDictation({ lang, onResult, keepSourceAudio = false }: { lang: Lang; keepSourceAudio?: boolean; onResult: (r: SttResult | null) => void }) {
   const t = useT();
   const toast = useToast();
   const hydrated = useHydrated();
@@ -139,7 +139,7 @@ export function LiveDictation({ lang, onResult }: { lang: Lang; onResult: (r: St
         setLevel(e.data.level);
         if (ready && ws.readyState === WebSocket.OPEN) ws.send(e.data.pcm);
       };
-      ws.onopen = () => ws.send(JSON.stringify({ type: "start", language: lang, ...(token ? { token } : {}) }));
+      ws.onopen = () => ws.send(JSON.stringify({ type: "start", language: lang, keep_source_audio: keepSourceAudio, ...(token ? { token } : {}) }));
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data as string);
         if (msg.type === "ready") {

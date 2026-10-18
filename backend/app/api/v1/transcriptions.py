@@ -4,12 +4,16 @@ import math
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.db import Transcription, User, get_db
+from app.config import Settings, get_settings
+from app.services.transcript_audio import source_audio_path
 from app.services.subtitles import subtitle_text
 
 router = APIRouter(prefix="/transcriptions", tags=["transcriptions"])
@@ -44,6 +48,8 @@ class TranscriptSegment(BaseModel):
 
 
 class TranscriptionDetail(TranscriptionOut):
+    source_audio_status: Literal["not_saved", "pending", "available", "storage_full", "unavailable", "removed"]
+    source_audio_bytes: int | None
     segments: list[TranscriptSegment] | None
     segmented_text: str | None
     revision: int
@@ -158,10 +164,33 @@ async def delete_transcription(
     transcription_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> Response:
-    result = await session.execute(
-        delete(Transcription).where(Transcription.id == transcription_id, Transcription.user_id == user.id))
+    await session.scalar(select(User.id).where(User.id == user.id).with_for_update())
+    row = await _owned_transcription(transcription_id, user, session, lock=True)
+    await run_in_threadpool(source_audio_path(settings.data_dir, user.id, row.id).unlink, missing_ok=True)
+    await session.delete(row)
     await session.commit()
-    if result.rowcount == 0:
-        raise HTTPException(404, "Transcription not found")
+    return Response(status_code=204)
+
+
+@router.get("/{transcription_id}/source-audio", response_class=FileResponse)
+async def transcript_source_audio(transcription_id: uuid.UUID, user: User = Depends(get_current_user),
+                                  session: AsyncSession = Depends(get_db), settings: Settings = Depends(get_settings)):
+    row = await _owned_transcription(transcription_id, user, session)
+    path = source_audio_path(settings.data_dir, user.id, row.id)
+    if row.source_audio_status != "available" or not await run_in_threadpool(path.is_file):
+        raise HTTPException(404, "Source audio is not available for this transcript.")
+    return FileResponse(path, media_type="audio/wav", filename=f"source-{row.id}.wav",
+                        headers={"Cache-Control": "private, no-store"})
+
+
+@router.delete("/{transcription_id}/source-audio", status_code=204)
+async def delete_transcript_source_audio(transcription_id: uuid.UUID, user: User = Depends(get_current_user),
+                                         session: AsyncSession = Depends(get_db), settings: Settings = Depends(get_settings)):
+    await session.scalar(select(User.id).where(User.id == user.id).with_for_update())
+    row = await _owned_transcription(transcription_id, user, session, lock=True)
+    await run_in_threadpool(source_audio_path(settings.data_dir, user.id, row.id).unlink, missing_ok=True)
+    row.source_audio_status, row.source_audio_bytes = "removed", None
+    await session.commit()
     return Response(status_code=204)

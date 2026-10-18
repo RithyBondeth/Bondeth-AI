@@ -15,6 +15,7 @@ from app.limits import LimitExceeded, limit_exceeded_handler
 from app.services.clone_jobs import CloneJobQueue
 from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
+from app.services.transcript_audio import TranscriptAudioLibrary
 from app.services.audio_library import CloneAudioLibrary
 
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +40,8 @@ async def lifespan(app: FastAPI):
     app.state.stt_queue = SttJobQueue(
         sync_redis, get_stt_service(), settings.data_dir / "stt_jobs",
         max_pending=settings.stt_job_max_queue, ttl_s=settings.stt_job_result_ttl_s, billing=billing,
+        library=TranscriptAudioLibrary(settings.database_url, settings.data_dir,
+                                       settings.source_audio_storage_mb, settings.source_audio_max_mb),
     )
 
     try:

@@ -307,5 +307,6 @@ async def delete_account(
     await session.commit()
     shutil.rmtree(settings.data_dir / "voices" / str(user_id), ignore_errors=True)
     shutil.rmtree(settings.data_dir / "audio_library" / str(user_id), ignore_errors=True)
+    shutil.rmtree(settings.data_dir / "transcript_audio" / str(user_id), ignore_errors=True)
     # Outstanding tokens now fail: access tokens find no account, refresh tokens are refused above.
     return Response(status_code=204)
