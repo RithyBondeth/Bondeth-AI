@@ -15,6 +15,7 @@ from fastapi import Request
 from sqlalchemy import BigInteger, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Base(DeclarativeBase):
@@ -69,6 +70,10 @@ class Transcription(Base):
     created_at: Mapped[datetime] = _created_at()
     # A job saves history independently of whether a browser follows its result.
     source_job_id: Mapped[str | None] = mapped_column(String(32), unique=True)
+    segments: Mapped[list[dict] | None] = mapped_column(JSONB)
+    segmented_text: Mapped[str | None] = mapped_column(Text)
+    revision: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BillingEvent(Base):
@@ -77,6 +82,23 @@ class BillingEvent(Base):
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     processed_at: Mapped[datetime] = _created_at()
+
+
+class GeneratedAudio(Base):
+    """Account-owned output, independent of expiring inference jobs and caches."""
+    __tablename__ = "generated_audio"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[uuid.UUID] = _owner()
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    voice: Mapped[str] = mapped_column(String(100), nullable=False)
+    language: Mapped[str] = mapped_column(String(10), nullable=False)
+    speed: Mapped[float] = mapped_column(Float, nullable=False)
+    duration: Mapped[float] = mapped_column(Float, nullable=False)
+    engine: Mapped[str] = mapped_column(String(40), nullable=False)
+    notice: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
 
 
 class ClonedVoice(Base):

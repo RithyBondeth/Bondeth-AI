@@ -212,6 +212,8 @@ def test_signed_in_dictation_is_saved_to_history(client, fake_stt, register):
     assert done["transcription_id"]
     history = client.get("/api/v1/transcriptions", headers={"Authorization": f"Bearer {token}"}).json()
     assert history["items"][0]["transcribed_text"] == "km:1.0"
+    detail = client.get(f"/api/v1/transcriptions/{done['transcription_id']}", headers={"Authorization": f"Bearer {token}"}).json()
+    assert detail["segments"] == done["segments"] == [{"start": 0.0, "end": 1.0, "text": "km:1.0"}]
 
 
 def test_bad_token_is_refused(client, fake_stt):

@@ -1,4 +1,4 @@
-import { AudioLines, CircleUserRound, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
+import { AudioLines, CircleUserRound, FolderOpen, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; km: string; icon: LucideIcon; description: string };
 
@@ -12,6 +12,8 @@ export const WORKSPACES: NavItem[] = [
 ];
 
 export const LIBRARY: NavItem[] = [
+  { href: "/audio", label: "Audio library", km: "បណ្ណាល័យសំឡេង", icon: FolderOpen,
+    description: "Your saved speech and voice-clone audio." },
   { href: "/history", label: "History", km: "ប្រវត្តិ", icon: History,
     description: "Every transcript you've saved." },
   { href: "/voices", label: "Voices", km: "សំឡេងរបស់អ្នក", icon: Library,

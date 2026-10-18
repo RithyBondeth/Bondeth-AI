@@ -1,5 +1,8 @@
 "use client";
 
+import { formatDay } from "@/lib/format";
+import { useT } from "@/lib/useLocale";
+
 import { useEffect, useState } from "react";
 
 import { Button, Panel, PanelHeader } from "@/components/ui";
@@ -17,6 +20,7 @@ type Billing = {
 };
 
 export function BillingSettings() {
+  const t = useT();
   const user = useUser();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,31 +61,27 @@ export function BillingSettings() {
 
   return (
     <Panel>
-      <PanelHeader title="Plan & billing" />
+      <PanelHeader title={t("Plan & billing")} />
       <div className="space-y-3 px-5 py-4 text-sm">
-        {error && <p role="alert" className="text-rose">{error}</p>}
-        {!billing ? <p className="text-ink-soft">{error ? "Reload the page to try again." : "Loading your plan…"}</p> : (
+        {error && <p role="alert" className="text-rose">{t(error)}</p>}
+        {!billing ? <p className="text-ink-soft">{error ? t("Reload the page to try again.") : t("Loading your plan…")}</p> : (
           <>
-            <p className="font-medium">{billing.plan === "pro" ? "Bondeth Pro" : "Free plan"}</p>
-            {!billing.enabled ? <p className="text-ink-soft">Paid plans are not enabled on this installation.</p> : (
+            <p className="font-medium">{billing.plan === "pro" ? "Bondeth Pro" : t("Free plan")}</p>
+            {!billing.enabled ? <p className="text-ink-soft">{t("Paid plans are not enabled on this installation.")}</p> : (
               <>
                 <p className="text-ink-soft">
-                  Pro includes {Math.floor(billing.pro_quotas.stt_seconds / 60).toLocaleString()} transcription minutes,
-                  {" "}{billing.pro_quotas.tts_chars.toLocaleString()} speech characters and
-                  {" "}{billing.pro_quotas.clone_jobs} clone jobs per day, with priority for queued jobs.
-                  Pricing and the billing interval are shown before you pay.
-                </p>
-                {billing.subscription_status && <p className="text-ink-soft">Subscription: {billing.subscription_status.replaceAll("_", " ")}</p>}
+                  {t("Pro includes ")}{Math.floor(billing.pro_quotas.stt_seconds / 60).toLocaleString()} {t(" transcription minutes,")}{" "}{billing.pro_quotas.tts_chars.toLocaleString()} {t(" speech characters and")}{" "}{billing.pro_quotas.clone_jobs} {t(" clone jobs per day, with priority for queued jobs. Pricing and the billing interval are shown before you pay.")}</p>
+                {billing.subscription_status && <p className="text-ink-soft">{t("Subscription: ")}{t(billing.subscription_status.replaceAll("_", " "))}</p>}
                 {billing.valid_until && billing.plan === "pro" && (
-                  <p className="text-ink-soft">Current access period ends {new Date(billing.valid_until).toLocaleDateString()}.</p>
+                  <p className="text-ink-soft">{t("Current access period ends ")}{formatDay(billing.valid_until)}.</p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   {billing.plan !== "pro" && <Button size="sm" loading={busy} disabled={!user?.email_verified}
-                    onClick={() => open("checkout")}>View Pro checkout</Button>}
+                    onClick={() => open("checkout")}>{t("View Pro checkout")}</Button>}
                   {billing.can_manage && <Button variant="secondary" size="sm" loading={busy}
-                    onClick={() => open("portal")}>Manage subscription</Button>}
+                    onClick={() => open("portal")}>{t("Manage subscription")}</Button>}
                 </div>
-                {!user?.email_verified && <p className="text-ink-soft">Confirm your email to subscribe.</p>}
+                {!user?.email_verified && <p className="text-ink-soft">{t("Confirm your email to subscribe.")}</p>}
               </>
             )}
           </>

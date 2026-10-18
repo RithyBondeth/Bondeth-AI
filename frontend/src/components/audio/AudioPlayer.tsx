@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { Download, Pause, Play } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -29,14 +31,16 @@ async function computePeaks(blob: Blob): Promise<number[]> {
   }
 }
 
-export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", compact = false, className }: {
+export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", compact = false, autoPlay = false, className }: {
   blob: Blob;
   filename?: string;
   tone?: "accent" | "teal" | "lilac";
   /** Smaller variant for lists. */
   compact?: boolean;
+  autoPlay?: boolean;
   className?: string;
 }) {
+  const t = useT();
   const audioRef = useRef<HTMLAudioElement>(null);
   const linkRef = useRef<HTMLAnchorElement>(null);
   const [peaks, setPeaks] = useState<number[] | null>(null);
@@ -64,7 +68,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
   const toggle = () => {
     const el = audioRef.current;
     if (!el) return;
-    if (el.paused) void el.play();
+    if (el.paused) void el.play().catch(() => setPlaying(false));
     else el.pause();
   };
 
@@ -80,6 +84,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
       <audio
         ref={audioRef}
         preload="metadata"
+        autoPlay={autoPlay}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -91,7 +96,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
         type="button"
         onClick={toggle}
         whileTap={{ scale: 0.9 }}
-        aria-label={playing ? "Pause" : "Play"}
+        aria-label={playing ? t("Pause") : t("Play")}
         className={cx("grid shrink-0 place-items-center rounded-full shadow-[0_6px_16px_-6px_currentColor]", compact ? "size-8" : "size-10")}
         style={{ background: color, color: `var(--${tone}-ink)` }}
       >
@@ -103,7 +108,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
       <div
         role="slider"
         tabIndex={0}
-        aria-label="Seek"
+        aria-label={t("Seek")}
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(time)}
@@ -132,7 +137,7 @@ export function AudioPlayer({ blob, filename = "audio.wav", tone = "accent", com
       <span className={cx("shrink-0 text-right text-xs tabular-nums text-ink-soft", compact ? "w-9" : "w-20")}>
         {compact ? formatSeconds(duration) : `${formatSeconds(time)} / ${formatSeconds(duration)}`}
       </span>
-      <a ref={linkRef} download={filename} aria-label="Download audio" title="Download"
+      <a ref={linkRef} download={filename} aria-label={t("Download audio")} title={t("Download")}
         className="grid size-8 shrink-0 place-items-center rounded-lg text-ink-soft transition-colors hover:bg-surface hover:text-ink">
         <Download className="size-4" />
       </a>

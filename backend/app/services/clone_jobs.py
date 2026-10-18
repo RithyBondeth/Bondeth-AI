@@ -30,6 +30,7 @@ from redis import Redis
 
 from app.services import queue_storage
 from app.services.job_billing import JobBilling, JobCharge
+from app.services.audio_library import CloneAudioLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ class CloneJob:
     ref_text: str | None = None
     ref_text_source: RefTextSource = "provided"
     voice_id: str | None = None
+    voice_label: str = "One-off sample"
+    audio_id: str | None = None
     charge: str | None = None  # JobCharge JSON: what was reserved, refunded if the job fails
     priority: bool = False
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
@@ -101,15 +104,17 @@ class CloneJob:
         return cls(**kwargs)
 
 
-_OPTIONAL_FIELDS = ("ref_text", "voice_id", "charge", "error", "duration", "finished_at")
+_OPTIONAL_FIELDS = ("ref_text", "voice_id", "audio_id", "charge", "error", "duration", "finished_at")
 _FLOAT_FIELDS = ("speed", "duration", "created_at", "finished_at")
 
 
 class CloneJobQueue:
     def __init__(self, redis: Redis, worker: Callable[[CloneJob], None], jobs_root: Path,
-                 max_pending: int, ttl_s: int, billing: JobBilling | None = None):
+                 max_pending: int, ttl_s: int, billing: JobBilling | None = None,
+                 library: CloneAudioLibrary | None = None):
         self._redis = redis
         self._billing = billing
+        self._library = library
         self._worker = worker
         self._jobs_root = jobs_root
         self._max_pending = max_pending
@@ -202,7 +207,11 @@ class CloneJobQueue:
         job.status = "running"
         self._redis.hset(job_key(job.id), "status", "running")
         try:
-            self._worker(job)
+            restored = self._library.restore(job) if self._library else False
+            if not restored:
+                self._worker(job)
+                if self._library:
+                    job.audio_id = self._library.save(job)
             job.status = "done"
         except Exception as exc:
             logger.warning("Clone job %s failed: %s", job.id, exc)

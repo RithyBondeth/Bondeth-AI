@@ -1,5 +1,13 @@
 import pytest
+import asyncio
+import uuid
+from datetime import UTC, datetime, timedelta
+from sqlalchemy import insert
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
+from app.config import get_settings
+from app.db import Transcription
 from app.deps import get_stt_service
 from app.main import app
 from tests.fakes import FakeStt, wav_bytes
@@ -62,3 +70,48 @@ def test_history_is_private_and_deletable(client, fake_stt, register):
 
 def test_history_requires_login(client):
     assert client.get("/api/v1/transcriptions").status_code == 401
+
+
+def seed_history(user_id, rows):
+    async def seed():
+        engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(insert(Transcription), [
+                    {"user_id": uuid.UUID(user_id), "language_code": language, "transcribed_text": text,
+                     "created_at": datetime(2026, 10, 1, tzinfo=UTC) + timedelta(seconds=index)}
+                    for index, (language, text) in enumerate(rows)
+                ])
+        finally:
+            await engine.dispose()
+    asyncio.run(seed())
+
+
+def test_search_finds_older_history_and_combines_language_and_pagination(client, register):
+    owner, other = register(), register("other@example.com")
+    user_id = client.get("/api/v1/auth/me", headers=owner).json()["id"]
+    seed_history(user_id, [("km", "សួស្តី បណ្ណាល័យ"), ("en", "An older NEEDLE")]
+                 + [("en", f"Recent entry {i}") for i in range(25)])
+    assert "NEEDLE" not in str(client.get("/api/v1/transcriptions?limit=20", headers=owner).json())
+    result = client.get("/api/v1/transcriptions", params={"q": " needle ", "language": "en"}, headers=owner).json()
+    assert result["total"] == 1 and result["items"][0]["transcribed_text"] == "An older NEEDLE"
+    assert client.get("/api/v1/transcriptions", params={"q": "needle", "language": "km"}, headers=owner).json()["total"] == 0
+    assert client.get("/api/v1/transcriptions", params={"q": "បណ្ណាល័យ"}, headers=owner).json()["total"] == 1
+    page = client.get("/api/v1/transcriptions?q=recent&language=en&limit=2&offset=2", headers=owner).json()
+    assert page["total"] == 25 and [row["transcribed_text"] for row in page["items"]] == ["Recent entry 22", "Recent entry 21"]
+    assert client.get("/api/v1/transcriptions?q=needle", headers=other).json()["total"] == 0
+
+
+@pytest.mark.parametrize("query", ["%", "_", "\\", "' OR 1=1 --"])
+def test_search_treats_wildcards_and_sql_as_literal_text(client, register, query):
+    owner = register()
+    user_id = client.get("/api/v1/auth/me", headers=owner).json()["id"]
+    seed_history(user_id, [("en", "ordinary words"), ("en", f"literal {query} here")])
+    page = client.get("/api/v1/transcriptions", params={"q": query}, headers=owner).json()
+    assert page["total"] == 1 and page["items"][0]["transcribed_text"] == f"literal {query} here"
+
+
+def test_search_validates_filters(client, register):
+    owner = register()
+    assert client.get("/api/v1/transcriptions?language=fr", headers=owner).status_code == 422
+    assert client.get("/api/v1/transcriptions", params={"q": "x" * 501}, headers=owner).status_code == 422

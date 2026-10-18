@@ -1,6 +1,7 @@
 /** Shapes returned by the Bondeth AI API (see backend/app/api/v1). */
 
 export type Lang = "auto" | "km" | "en";
+export type TranscriptSegment = { start: number; end: number; text: string };
 
 export type SttResult = {
   detected_language: string;
@@ -8,7 +9,7 @@ export type SttResult = {
   duration: number;
   text: string;
   segmented_text: string;
-  segments: { start: number; end: number; text: string }[];
+  segments: TranscriptSegment[];
   transcription_id: string | null;
 };
 
@@ -32,6 +33,16 @@ export type Transcription = {
   created_at: string;
 };
 
+export type TranscriptionDetail = Transcription & {
+  segments: TranscriptSegment[] | null;
+  segmented_text: string | null;
+  revision: number;
+  updated_at: string | null;
+};
+
+export type TranscriptDocument = Omit<TranscriptionDetail, "id"> & { id: string | null };
+export type TranscriptDraft = { text: string; segments: TranscriptSegment[] | null };
+
 export type TtsPreview = { primary_lang: string; engine?: string; chunks: { lang: string; text: string }[] };
 
 export type Voice = {
@@ -54,6 +65,20 @@ export type CloneJob = {
   duration: number | null;
   status_url: string;
   audio_url: string | null;
+  audio_id?: string | null;
+};
+
+export type SavedAudio = {
+  id: string;
+  kind: "tts" | "clone";
+  text: string;
+  voice: string;
+  language: Lang;
+  speed: number;
+  duration: number;
+  engine: string;
+  notice: string | null;
+  created_at: string;
 };
 
 export type QuotaName = "stt_seconds" | "tts_chars" | "clone_jobs";

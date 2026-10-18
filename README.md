@@ -36,11 +36,11 @@ Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើង
 | **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). **Live dictation** streams the microphone over a WebSocket and shows text as you speak (needs a GPU to feel real-time; on CPU-only servers set `BONDETH_STT_LIVE_PARTIALS=false`). **14.5% normalized CER on 24 reserved FLEURS Khmer validation clips**, not a full-test-set guarantee; see [accuracy checks and limitations](docs/local-voice-testing.md#khmer-recognition-accuracy) |
 | **Text-to-Speech** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) (quality-first local selection) or [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (fast default) | Reads Khmer, English, or both; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. OmniVoice uses one generic synthetic speaker for bilingual speech, with Khmer-aware timing and 24 kHz output. Repeated phrases are cached. See [quality settings, latency and non-commercial limits](docs/khmer-tts.md) |
 | **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Uses a consented 3-30 s sample (5-10 s recommended), native-bandwidth reference preparation, editable transcripts and quality-first generation. Runs as a queued job that survives restarts. See [Khmer cloning quality and limits](docs/khmer-voice-cloning.md) |
-| **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, email verification, password reset by email, account deletion, transcription history, saved voices |
+| **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, email verification, password reset by email, account deletion, searchable transcription history with autosaved edits and SRT/VTT subtitle export, saved voices, and a persistent audio library for generated speech and clones |
 | **Developer API keys** | PostgreSQL | Per-app keys (`X-API-Key: bdk_...`) for the whole API, revocable, with daily usage metered per key |
 | **Usage limits** | Redis | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage` |
 
-The web app is a studio-style Next.js UI with light/dark themes, animations and hand-drawn doodles.
+The web app is a studio-style Next.js UI with a Khmer/English interface, a remembered language preference, light/dark themes, animations and hand-drawn doodles.
 
 ## Quick start (Docker)
 
@@ -135,6 +135,8 @@ Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://hugg
 - [Current architecture](docs/architecture.md): runtime, persistence, model boundaries and differences from the proposal.
 - [Production operations](docs/operations.md): split workers, scaling, migrations, backups and verification.
 - [Stripe subscriptions](docs/billing.md): optional Pro plans, Checkout, portal and webhook setup.
+- [History search and audio library](docs/audio-library.md): private saved outputs, filtering, downloads and storage.
+- [Transcript editing and subtitles](docs/transcript-editing.md): autosave, conflict handling and SRT/VTT exports.
 - [Local voice testing](docs/local-voice-testing.md): real-model smoke test, audio samples and local engine troubleshooting.
 - [frontend/README.md](frontend/README.md): pages and design system.
 - [deploy/gpu/README.md](deploy/gpu/README.md): evaluating VoxCPM2 and live-dictation latency on a rented GPU (one command, report with targets).

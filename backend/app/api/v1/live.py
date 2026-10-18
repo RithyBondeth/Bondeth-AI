@@ -132,17 +132,19 @@ async def live_dictation(ws: WebSocket, settings: Settings = Depends(get_setting
         for event in await run_in_threadpool(live.step, True):
             await ws.send_json(event)
 
+        segments = [{"start": f["start"], "end": f["end"], "text": f["text"]} for f in live.finals]
         transcription_id = None
         if user is not None and live.text:
             async with app.state.sessionmaker() as session:
                 row = Transcription(user_id=user.id, language_code=live.language or "km",
-                                    transcribed_text=live.text, audio_duration_seconds=round(state["received_s"], 2))
+                                    transcribed_text=live.text, audio_duration_seconds=round(state["received_s"], 2),
+                                    segments=segments or None, segmented_text=live.segmented_text)
                 session.add(row)
                 await session.commit()
                 transcription_id = str(row.id)
         await ws.send_json({"type": "done", "text": live.text, "segmented_text": live.segmented_text,
                             "language": live.language, "duration": round(state["received_s"], 2),
-                            "transcription_id": transcription_id})
+                            "transcription_id": transcription_id, "segments": segments})
         if state["error"]:
             detail, reason = state["error"]
             return await _fail(ws, detail, reason, TRY_AGAIN_LATER)

@@ -15,6 +15,7 @@ from app.deps import get_clone_service, get_stt_service
 from app.services.clone_jobs import CloneJobQueue
 from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
+from app.services.audio_library import CloneAudioLibrary
 
 HEARTBEAT_KEY = "workers:standalone:heartbeat"
 
@@ -32,7 +33,8 @@ def main():
     billing = JobBilling(redis, settings.database_url)
     queues = [
         CloneJobQueue(redis, get_clone_service().run, settings.data_dir / "clone_jobs",
-                      settings.clone_max_queue, settings.clone_result_ttl_s, billing),
+                      settings.clone_max_queue, settings.clone_result_ttl_s, billing,
+                      CloneAudioLibrary(settings.database_url, settings.data_dir, settings.clone_engine)),
         SttJobQueue(redis, get_stt_service(), settings.data_dir / "stt_jobs",
                     settings.stt_job_max_queue, settings.stt_job_result_ttl_s, billing),
     ]

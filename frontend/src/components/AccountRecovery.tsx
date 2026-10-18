@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import { CircleCheck, CircleX, MailCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -30,14 +32,16 @@ function Outcome({ ok, children }: { ok: boolean; children: ReactNode }) {
 }
 
 function ErrorLine({ error }: { error: string | null }) {
+  const t = useT();
   if (!error) return null;
   return (
     <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1, x: [0, -6, 6, -3, 0] }}
-      className="rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose">{error}</motion.p>
+      className="rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose">{t(error)}</motion.p>
   );
 }
 
 export function VerifyEmail() {
+  const t = useT();
   const [state, setState] = useState<{ status: "working" | "done" | "failed"; detail?: string }>({ status: "working" });
   const started = useRef(false);
 
@@ -60,19 +64,19 @@ export function VerifyEmail() {
   }, []);
 
   return (
-    <AuthShell km="បញ្ជាក់អ៊ីមែល" title="Confirm your email" subtitle="One click and your full daily allowance is unlocked." bubble="អរគុណ" art="reader">
+    <AuthShell km="បញ្ជាក់អ៊ីមែល" title={t("Confirm your email")} subtitle={t("One click and your full daily allowance is unlocked.")} bubble="អរគុណ" art="reader">
       {state.status === "working" ? (
-        <p className="text-sm text-ink-soft">Checking your link…</p>
+        <p className="text-sm text-ink-soft">{t("Checking your link…")}</p>
       ) : state.status === "done" ? (
         <Outcome ok>
-          <p className="font-medium">Your email is confirmed.</p>
-          <p className="text-ink-soft">Voice cloning, API keys and the full daily allowance are now on.</p>
-          <Link href="/stt" className="inline-block font-medium text-accent hover:underline">Open the studio →</Link>
+          <p className="font-medium">{t("Your email is confirmed.")}</p>
+          <p className="text-ink-soft">{t("Voice cloning, API keys and the full daily allowance are now on.")}</p>
+          <Link href="/stt" className="inline-block font-medium text-accent hover:underline">{t("Open the studio →")}</Link>
         </Outcome>
       ) : (
         <Outcome ok={false}>
-          <p className="font-medium">{state.detail}</p>
-          <Link href="/account" className="inline-block font-medium text-accent hover:underline">Send a new link from your account →</Link>
+          <p className="font-medium">{state.detail && t(state.detail)}</p>
+          <Link href="/account" className="inline-block font-medium text-accent hover:underline">{t("Send a new link from your account →")}</Link>
         </Outcome>
       )}
     </AuthShell>
@@ -80,6 +84,7 @@ export function VerifyEmail() {
 }
 
 export function ForgotPassword() {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -102,31 +107,31 @@ export function ForgotPassword() {
   };
 
   return (
-    <AuthShell km="ភ្លេចពាក្យសម្ងាត់" title="Forgot your password?" subtitle="We'll email you a link to choose a new one." bubble="កុំបារម្ភ" art="key">
+    <AuthShell km="ភ្លេចពាក្យសម្ងាត់" title={t("Forgot your password?")} subtitle={t("We'll email you a link to choose a new one.")} bubble="កុំបារម្ភ" art="key">
       {sentTo ? (
         <Outcome ok>
-          <p className="flex items-center gap-2 font-medium"><MailCheck className="size-4" /> Check your inbox</p>
+          <p className="flex items-center gap-2 font-medium"><MailCheck className="size-4" /> {t(" Check your inbox")}</p>
           <p className="text-ink-soft">
-            If an account exists for <strong className="text-ink">{sentTo}</strong>, a reset link is on its way. It works once, for an hour.
-          </p>
+            {t("If an account exists for ")}<strong className="text-ink">{sentTo}</strong>{t(", a reset link is on its way. It works once, for an hour.")}</p>
         </Outcome>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <Field label="Email">
+          <Field label={t("Email")}>
             {(id) => <Input id={id} name="email" type="email" required autoComplete="email" placeholder="you@example.com" autoFocus />}
           </Field>
           <ErrorLine error={error} />
-          <Button type="submit" loading={busy} className="w-full" size="lg">Send reset link</Button>
+          <Button type="submit" loading={busy} className="w-full" size="lg">{t("Send reset link")}</Button>
         </form>
       )}
       <p className="mt-6 text-center text-sm text-ink-soft">
-        Remembered it? <Link href="/login" className="font-medium text-accent hover:underline">Sign in</Link>
+        {t("Remembered it? ")}<Link href="/login" className="font-medium text-accent hover:underline">{t("Sign in")}</Link>
       </p>
     </AuthShell>
   );
 }
 
 export function ResetPassword() {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -156,24 +161,24 @@ export function ResetPassword() {
   };
 
   return (
-    <AuthShell km="ប្តូរពាក្យសម្ងាត់" title="Choose a new password" subtitle="You'll be signed out on every device." bubble="ល្អណាស់" art="listener">
+    <AuthShell km="ប្តូរពាក្យសម្ងាត់" title={t("Choose a new password")} subtitle={t("You'll be signed out on every device.")} bubble="ល្អណាស់" art="listener">
       {done ? (
         <Outcome ok>
-          <p className="font-medium">Your password is changed.</p>
-          <Link href="/login" className="inline-block font-medium text-accent hover:underline">Sign in with it →</Link>
+          <p className="font-medium">{t("Your password is changed.")}</p>
+          <Link href="/login" className="inline-block font-medium text-accent hover:underline">{t("Sign in with it →")}</Link>
         </Outcome>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <Field label="New password" hint="At least 8 characters.">
+          <Field label={t("New password")} hint={t("At least 8 characters.")}>
             {(id) => <Input id={id} name="password" type="password" required minLength={8} autoComplete="new-password" autoFocus />}
           </Field>
-          <Field label="Repeat it">
+          <Field label={t("Repeat it")}>
             {(id) => <Input id={id} name="confirm" type="password" required minLength={8} autoComplete="new-password" />}
           </Field>
           <ErrorLine error={error} />
-          <Button type="submit" loading={busy} className="w-full" size="lg">Change password</Button>
+          <Button type="submit" loading={busy} className="w-full" size="lg">{t("Change password")}</Button>
           <p className="text-center text-sm text-ink-soft">
-            Link expired? <Link href="/forgot-password" className="font-medium text-accent hover:underline">Get a new one</Link>
+            {t("Link expired? ")}<Link href="/forgot-password" className="font-medium text-accent hover:underline">{t("Get a new one")}</Link>
           </p>
         </form>
       )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/useLocale";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -21,6 +23,7 @@ export function Intro({ children }: { children: ReactNode }) {
 
 /** Renders children only for signed-in users; otherwise a friendly sign-in prompt. */
 export function RequireAuth({ children, why }: { children: ReactNode; why: string }) {
+  const t = useT();
   const user = useUser();
   const hydrated = useHydrated();
   const pathname = usePathname();
@@ -31,13 +34,13 @@ export function RequireAuth({ children, why }: { children: ReactNode; why: strin
     <Panel className="mx-auto max-w-xl">
       <EmptyState
         doodle={<UnlockDoodle className="h-32 w-44 text-ink" />}
-        title="Sign in to continue"
+        title={t("Sign in to continue")}
         action={
           <div className="flex gap-2">
             <Link href={`/login?next=${encodeURIComponent(pathname)}`}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink">Sign in</Link>
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink">{t("Sign in")}</Link>
             <Link href={`/register?next=${encodeURIComponent(pathname)}`}
-              className="rounded-xl border border-line bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">Create account</Link>
+              className="rounded-xl border border-line bg-surface px-5 py-2.5 text-sm font-medium hover:bg-surface-2">{t("Create account")}</Link>
           </div>
         }
       >
