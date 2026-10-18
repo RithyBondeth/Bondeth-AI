@@ -216,3 +216,158 @@ test("anonymous live dictation keeps its timings for local editing and export", 
   expect(await download(page, "SRT")).toContain("00:00:00,125 --> 00:00:01,999\nLocal correction");
   expect(patches).toEqual([]);
 });
+
+async function saved(page: Page) {
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+}
+async function timing(page: Page, number: number, start: string, end: string) {
+  await page.getByRole("button", { name: `Edit timing for segment ${number}`, exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Start time", exact: true }).fill(start);
+  await dialog.getByRole("textbox", { name: "End time", exact: true }).fill(end);
+  await dialog.getByRole("button", { name: "Apply timing", exact: true }).click();
+}
+
+test("timing changes autosave and export immediately, survive reload, and support undo after saving", async ({ page }) => {
+  const server = await setup(page); await openEditor(page);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await timing(page, 1, "00:00:00.250", "1.75");
+  expect(await download(page, "SRT")).toContain("00:00:00,250 --> 00:00:01,750");
+  expect(await download(page, "VTT")).toContain("00:00:00.250 --> 00:00:01.750");
+  await saved(page);
+  expect(server.document.segments![0]).toEqual({ ...segments[0], start: .25, end: 1.75 });
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await saved(page);
+  expect(server.document.segments).toEqual(segments);
+  expect(server.document.revision).toBe(3);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await saved(page);
+  expect(server.document.revision).toBe(4);
+  await page.reload();
+  await page.getByRole("radio", { name: "Edit", exact: true }).click();
+  expect(await download(page, "VTT")).toContain("00:00:00.250 --> 00:00:01.750");
+});
+
+test("split at the caret and merge preserve text, subtitle ranges, and reversible autosaved steps", async ({ page }) => {
+  const server = await setup(page); await openEditor(page);
+  const second = page.getByRole("textbox", { name: "Segment 2 text", exact: true });
+  await second.focus(); await second.press("Home");
+  for (let i = 0; i < 6; i++) await second.press("ArrowRight");
+  await page.getByRole("button", { name: "Split segment 2", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("textbox", { name: "First part", exact: true })).toHaveValue("Hello ");
+  await expect(dialog.getByRole("textbox", { name: "Second part", exact: true })).toHaveValue("world");
+  await dialog.getByRole("textbox", { name: "Split time", exact: true }).fill("3.25");
+  await dialog.getByRole("button", { name: "Apply split", exact: true }).click();
+  const split = [segments[0], { start: 2, end: 3.25, text: "Hello " }, { start: 3.25, end: 4.2, text: "world" }];
+  await saved(page); expect(server.document.segments).toEqual(split);
+  expect(await download(page, "SRT")).toContain("2\n00:00:02,000 --> 00:00:03,250\nHello\n\n3\n00:00:03,250 --> 00:00:04,200\nworld");
+  await page.getByRole("button", { name: "Merge segment 2 with next", exact: true }).click();
+  await saved(page); expect(server.document.segments).toEqual(segments);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await saved(page); expect(server.document.segments).toEqual(split);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await saved(page); expect(server.document.segments).toEqual(segments);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await saved(page); expect(server.document.segments).toEqual(split);
+  await page.getByRole("textbox", { name: "Segment 3 text", exact: true }).fill("new branch");
+  await expect(page.getByRole("button", { name: "Redo", exact: true })).toBeDisabled();
+  await saved(page);
+  expect(server.patches.map((p) => p.revision)).toEqual([1, 2, 3, 4, 5, 6]);
+});
+
+test("invalid timing and split boundaries never mutate or autosave the transcript", async ({ page }) => {
+  const server = await setup(page); await openEditor(page);
+  for (const [start, end, message] of [
+    ["invalid", "1", "Enter a time as"], ["-1", "1", "Enter a time as"],
+    ["1", "1", "End time must"], ["1", "0.5", "End time must"],
+    ["0", "5", "Subtitle timing exceeds"], ["2.5", "3", "Segments must stay ordered"],
+  ]) {
+    await timing(page, 1, start, end);
+    await expect(page.getByRole("dialog").getByRole("alert")).toContainText(message);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Split segment 1", exact: true }).click();
+  await page.getByRole("textbox", { name: "Split time", exact: true }).fill("0.125");
+  await page.getByRole("button", { name: "Apply split", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Split time must be inside");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(server.patches).toEqual([]); expect(server.document.segments).toEqual(segments);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+});
+
+test("undo during a structural save keeps newer typing and serializes the restored draft", async ({ page }) => {
+  const server = await setup(page); await openEditor(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  server.beforePatch = async () => { if (server.patches.length === 1) await gate; };
+  const sent = page.waitForRequest((r) => r.method() === "PATCH");
+  await timing(page, 1, "0.25", "1.75");
+  await sent;
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("textbox", { name: "Segment 1 text", exact: true }).fill("Typed after undo");
+  release(); await saved(page);
+  expect(server.document.segments).toEqual([{ ...segments[0], text: "Typed after undo" }, segments[1]]);
+  expect(server.patches.map((p) => p.revision)).toEqual([1, 2]);
+  await expect(page.getByRole("button", { name: "Redo", exact: true })).toBeDisabled();
+});
+
+test("keyboard undo and redo cover plain text and clear when loading another saved version", async ({ page }) => {
+  const server = await setup(page, false); await openEditor(page);
+  const text = page.getByRole("textbox", { name: "Transcript text", exact: true });
+  await text.fill("Changed plain text"); await saved(page);
+  await text.press("ControlOrMeta+z");
+  await expect(text).toHaveValue("សួស្តី Hello world"); await saved(page);
+  await text.press("ControlOrMeta+Shift+z");
+  await expect(text).toHaveValue("Changed plain text"); await saved(page);
+  server.document = { ...server.document, revision: server.document.revision + 1, transcribed_text: "Remote version" };
+  await text.fill("Conflicting edit");
+  await page.getByRole("button", { name: "Load saved version", exact: true }).click();
+  await expect(text).toHaveValue("Remote version");
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Redo", exact: true })).toBeDisabled();
+});
+
+test("Khmer timing and split dialogs fit small screens, trap focus, and preserve canceled text", async ({ page }, info) => {
+  const server = await setup(page); await openEditor(page);
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.getByRole("button", { name: /Switch to Khmer/ }).click();
+  await page.getByRole("button", { name: "កែពេលវេលាផ្នែកទី 1", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveCSS("opacity", "1");
+  await expect(page.getByText(/Edit text and timing, split at the text cursor/)).toHaveCount(0);
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.locator("body").evaluate((el) => el.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`timing-dialog-${width}.png`), fullPage: true });
+  }
+  const first = dialog.getByRole("button", { name: "បិទ", exact: true });
+  await first.focus(); await first.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "អនុវត្តពេលវេលា", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "បំបែកផ្នែកទី 1", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "ផ្នែកទីមួយ", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "បោះបង់", exact: true }).click();
+  expect(server.patches).toEqual([]);
+});
+
+test("a failed split save retains every boundary when leaving and returning, then retries", async ({ page }) => {
+  const server = await setup(page); server.fail = true; await openEditor(page);
+  await page.getByRole("button", { name: "Split segment 2", exact: true }).click();
+  await page.getByRole("textbox", { name: "Split time", exact: true }).fill("3.125");
+  await page.getByRole("textbox", { name: "First part", exact: true }).fill("Hello");
+  await page.getByRole("textbox", { name: "Second part", exact: true }).fill("world");
+  await page.getByRole("button", { name: "Apply split", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Retry save", exact: true })).toBeVisible();
+  const srt = await download(page, "SRT");
+  expect(srt).toContain("00:00:03,125 --> 00:00:04,200\nworld");
+  await page.getByRole("link", { name: "← Back to history", exact: true }).click();
+  await page.getByRole("link", { name: "Edit transcript", exact: true }).click();
+  await page.getByRole("radio", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Segment 3 text", exact: true })).toHaveValue("world");
+  await expect(page.getByRole("button", { name: "Retry save", exact: true })).toBeVisible();
+  expect(await download(page, "SRT")).toBe(srt);
+  server.fail = false;
+  await page.getByRole("button", { name: "Retry save", exact: true }).click(); await saved(page);
+  expect(server.document.segments).toEqual([segments[0], { start: 2, end: 3.125, text: "Hello" }, { start: 3.125, end: 4.2, text: "world" }]);
+});

@@ -6,10 +6,12 @@ import { Check, Copy, Download } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { TranscriptAudio, type TranscriptPlayback } from "@/components/audio/TranscriptAudio";
+import { CueDialog, type CueAction } from "@/components/studios/CueDialog";
 import { Badge, Button, IconButton, Panel, Segmented, Textarea, cx, useToast } from "@/components/ui";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
+import { activeCue, cueError, mergeCue } from "@/lib/cueEditing";
 import { downloadTranscript, subtitleText, subtitleTimestamp, transcriptDraft } from "@/lib/subtitles";
-import type { TranscriptDocument } from "@/lib/types";
+import type { TranscriptDocument, TranscriptDraft, TranscriptSegment } from "@/lib/types";
 import { useTranscriptAutosave } from "@/lib/useTranscriptAutosave";
 
 type View = "text" | "words" | "timeline" | "edit";
@@ -19,6 +21,8 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
   const playback = useRef<TranscriptPlayback>(null);
   const [activeSegment, setActiveSegment] = useState(-1);
   const [sourceRemoved, setSourceRemoved] = useState(false);
+  const [action, setAction] = useState<CueAction | null>(null);
+  const caret = useRef<Record<number, number>>({});
   const canSeek = !sourceRemoved && !!document.id && !!ownerId && ["available", "pending"].includes(document.source_audio_status ?? "");
   const toast = useToast();
   const editor = useTranscriptAutosave(document, ownerId);
@@ -50,7 +54,27 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
     catch (err) { toast(err instanceof Error ? err.message : "Couldn't export subtitles.", "error"); }
   };
 
-  return <Panel>
+  const highlight = (next?: TranscriptDraft) => {
+    if (next) setActiveSegment(activeCue(next.segments, playback.current?.position() ?? -1));
+  };
+  const commitSegments = (segments: TranscriptSegment[]) => {
+    const problem = cueError(segments, document.audio_duration_seconds);
+    if (problem) return problem;
+    const next = transcriptDraft("", segments);
+    editor.edit(next); highlight(next); caret.current = {};
+    return null;
+  };
+  const travel = (back: boolean) => { highlight(back ? editor.undo() : editor.redo()); caret.current = {}; };
+  const openAction = (kind: CueAction["kind"], index: number) => setAction({ kind, index,
+    caret: caret.current[index], playhead: playback.current?.position() ?? null });
+
+  return <div onKeyDownCapture={(event) => {
+    if (action || (event.target as HTMLElement).closest('[role="dialog"]') || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    if (key === "z" || key === "y" && !event.shiftKey) {
+      event.preventDefault(); travel(key === "z" && !event.shiftKey);
+    }
+  }}><Panel>
     <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
       <h2 className="mr-auto text-sm font-medium">{t("Transcript ")}<span className="secondary-khmer khmer font-normal text-ink-soft">· អត្ថបទ</span></h2>
       <Badge tone="teal">{t(LANG_LABEL[document.language_code] ?? document.language_code)}</Badge>
@@ -61,14 +85,14 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
       status={sourceRemoved ? "removed" : document.source_audio_status}
       onRemoved={() => { setSourceRemoved(true); setActiveSegment(-1); }}
       onPosition={(time) => {
-        let active = -1;
-        if (time >= 0) draft.segments?.forEach((segment, index) => {
-          if (segment.start <= time && time < segment.end) active = index;
-        });
-        setActiveSegment(active);
+        setActiveSegment(activeCue(draft.segments, time));
       }} />}
     <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
       <Segmented label={t("Transcript view")} value={view} onChange={setView} options={views} className="max-w-full flex-wrap [&_button]:px-2" />
+      <div role="group" aria-label={t("Edit history")} className="flex gap-1.5">
+        <Button variant="secondary" size="sm" disabled={!editor.canUndo || resolving} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => travel(true)}>{t("Undo")}</Button>
+        <Button variant="secondary" size="sm" disabled={!editor.canRedo || resolving} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" onClick={() => travel(false)}>{t("Redo")}</Button>
+      </div>
       <div className="ml-auto flex flex-wrap items-center gap-1.5" role="group" aria-label={t("Transcript exports")}>
         <Download aria-hidden className="size-3.5 text-ink-soft" />
         {(["txt", "srt", "vtt"] as const).map((format) => <Button key={format} variant="secondary" size="sm"
@@ -84,8 +108,8 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
         : t("{error} Your edits are still in the editor; you can retry or download them.", { error: t(error ?? "") })}</p>
       <div className="flex flex-wrap gap-2">
         {status === "conflict" ? <>
-          <Button variant="secondary" size="sm" disabled={resolving} onClick={() => editor.resolveConflict(false)}>{t("Load saved version")}</Button>
-          <Button size="sm" loading={resolving} onClick={() => editor.resolveConflict(true)}>{t("Save my version")}</Button>
+          <Button variant="secondary" size="sm" disabled={resolving} onClick={async () => highlight(await editor.resolveConflict(false))}>{t("Load saved version")}</Button>
+          <Button size="sm" loading={resolving} onClick={async () => highlight(await editor.resolveConflict(true))}>{t("Save my version")}</Button>
         </> : <Button variant="secondary" size="sm" onClick={() => editor.save()}>{t("Retry save")}</Button>}
       </div>
     </div>}
@@ -93,7 +117,9 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
       {t("Timestamps aren't available for this transcript. You can edit and download its text; transcribe the audio again for subtitle export.")}</p>}
     {view === "edit" ? <div className="space-y-4 p-5">
       <p className="text-xs leading-relaxed text-ink-soft">{document.id ? t("Changes save automatically.") : t("Sign in before transcribing to save future transcripts and edits.")}
-        {draft.segments && t(" Correct each segment below. Subtitle timings stay unchanged.")}</p>
+        {draft.segments && <> {t("Edit text and timing, split at the text cursor, or merge with the next segment. You can undo every applied change.")}</>}</p>
+      {draft.segments?.some((segment, index, all) => index + 1 < all.length && segment.end > all[index + 1].start)
+        && <p role="note" className="text-xs leading-relaxed text-ink-soft">{t("Some segments overlap. Review their timing before exporting; intentional overlaps are allowed.")}</p>}
       {draft.segments ? draft.segments.map((segment, index) => <div key={index} data-active={activeSegment === index} className="block space-y-2 rounded-xl p-2 -m-2 data-[active=true]:bg-accent-soft data-[active=true]:ring-1 data-[active=true]:ring-accent">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
           <span>{t("Segment ")}{index + 1}</span>{canSeek ? <button type="button" aria-label={t("Play segment {number}", { number: index + 1 })}
@@ -103,10 +129,23 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
             : <span className="tabular-nums">{subtitleTimestamp(segment.start)} – {subtitleTimestamp(segment.end)}</span>}
         </span>
         <Textarea aria-label={t("Segment {number} text", { number: index + 1 })} lang={document.language_code} className={cx(isKhmer && "khmer")}
-          rows={2} maxLength={10000} disabled={resolving} value={segment.text} onChange={(event) => editor.edit(transcriptDraft("",
-            draft.segments!.map((s, i) => i === index ? { ...s, text: event.target.value } : s)))} />
+          rows={2} maxLength={10000} disabled={resolving} value={segment.text}
+          onSelect={(event) => { caret.current[index] = event.currentTarget.selectionStart; }}
+          onChange={(event) => editor.edit(transcriptDraft("",
+            draft.segments!.map((s, i) => i === index ? { ...s, text: event.target.value } : s)), `segment:${index}`)} />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" disabled={resolving} aria-label={t("Edit timing for segment {number}", { number: index + 1 })}
+            onClick={() => openAction("timing", index)}>{t("Edit timing")}</Button>
+          <Button variant="secondary" size="sm" disabled={resolving || draft.segments!.length >= 20000 || Math.round(segment.end * 1000) - Math.round(segment.start * 1000) < 2}
+            aria-label={t("Split segment {number}", { number: index + 1 })} onClick={() => openAction("split", index)}>{t("Split")}</Button>
+          <Button variant="secondary" size="sm" disabled={resolving || index === draft.segments!.length - 1}
+            aria-label={t("Merge segment {number} with next", { number: index + 1 })} onClick={() => {
+              const problem = commitSegments(mergeCue(draft.segments!, index));
+              if (problem) toast(problem, "error");
+            }}>{t("Merge next")}</Button>
+        </div>
       </div>) : <Textarea aria-label={t("Transcript text")} lang={document.language_code} className={cx(isKhmer && "khmer")}
-        rows={8} maxLength={500000} disabled={resolving} value={draft.text} onChange={(event) => editor.edit({ text: event.target.value, segments: null })} />}
+        rows={8} maxLength={500000} disabled={resolving} value={draft.text} onChange={(event) => editor.edit({ text: event.target.value, segments: null }, "text")} />}
     </div> : view === "timeline" ? <ol className="space-y-2 p-5">{draft.segments?.map((segment, index) => <li key={index}>
       <button type="button" disabled={!canSeek} aria-label={t("Play segment {number}", { number: index + 1 })}
         aria-current={activeSegment === index ? "true" : undefined} onClick={() => playback.current?.seek(segment.start)}
@@ -123,5 +162,8 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
           {segment.text || t("(Empty cue)")}</button>
       </span>) : text || <span className="text-ink-soft">{t("This transcript is empty. Choose Edit to add text.")}</span>}
     </div>}
-  </Panel>;
+  </Panel>
+    {action && draft.segments && <CueDialog action={action} segments={draft.segments} language={document.language_code} canUsePlayback={canSeek}
+      position={() => playback.current?.position() ?? null} onCommit={commitSegments} onClose={() => setAction(null)} />}
+  </div>;
 }

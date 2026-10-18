@@ -169,3 +169,40 @@ def test_subtitle_serialization_rounds_with_carry_and_escapes_literal_text():
     for invalid in (float("inf"), float("nan")):
         with pytest.raises(ValidationError):
             TranscriptSegment(start=invalid, end=2, text="bad")
+
+
+def test_retiming_splitting_merging_and_restoring_preserve_exports_and_revisions(client, register):
+    owner = register()
+    url = f'/api/v1/transcriptions/{seed(client, owner)}'
+    first = client.get(url, headers=owner).json()
+    retimed = [{**SEGMENTS[0], 'start': 0.25, 'end': 1.75}, SEGMENTS[1]]
+    split = [retimed[0], {'start': 2.0, 'end': 3.1, 'text': 'Hello'},
+             {'start': 3.1, 'end': 4.2, 'text': 'world'}]
+    merged = [retimed[0], {'start': 2.0, 'end': 4.2, 'text': 'Hello world'}]
+    revision = 1
+    for segments in [retimed, split, merged, split, retimed, SEGMENTS]:
+        response = client.patch(url, headers=owner, json={'revision': revision, 'segments': segments})
+        assert response.status_code == 200, response.text
+        revision += 1
+        doc = response.json()
+        assert doc['revision'] == revision and doc['segments'] == segments
+        assert client.get(url, headers=owner).json()['segments'] == segments
+        for fmt in ['srt', 'vtt']:
+            exported = client.get(url + '/export?format=' + fmt, headers=owner)
+            assert exported.text == subtitle_text(segments, fmt)
+    assert first['transcribed_text'] == doc['transcribed_text']
+    assert doc['source_audio_status'] == first['source_audio_status']
+    # Stale structural edits cannot replace a later revision.
+    assert client.patch(url, headers=owner, json={'revision': 2, 'segments': split}).status_code == 409
+    assert client.get(url, headers=owner).json()['segments'] == SEGMENTS
+
+
+def test_timing_only_edits_keep_word_boundaries_and_intentional_overlaps(client, register):
+    owner = register()
+    url = f'/api/v1/transcriptions/{seed(client, owner)}'
+    overlapping = [{**SEGMENTS[0], 'end': 2.5}, SEGMENTS[1]]
+    doc = client.patch(url, headers=owner, json={'revision': 1, 'segments': overlapping}).json()
+    assert doc['segments'] == overlapping and doc['segmented_text'] == 'សួស្តី Hello world'
+    for invalid in [list(reversed(overlapping)), [{**overlapping[0], 'end': 4.5}, overlapping[1]]]:
+        assert client.patch(url, headers=owner, json={'revision': 2, 'segments': invalid}).status_code == 422
+    assert client.get(url, headers=owner).json()['revision'] == 2
