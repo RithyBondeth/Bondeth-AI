@@ -158,3 +158,45 @@ draft and saves it at the next revision rather than rewinding server revisions.
 
 Browser SRT/VTT downloads use every applied draft change immediately, even before
 autosave completes; authenticated export endpoints use the latest saved version.
+
+## Find and replace
+
+Choose **Find and replace** in a transcript, or use Ctrl/Cmd+F while focus is
+inside the editor. Ctrl+H opens the replacement field. Enter in the find field
+selects the next match; Shift+Enter selects the previous one, wrapping at the
+ends. Escape closes the panel and returns focus to the editor. Search does not
+change text, start playback, or spend transcription allowance.
+
+Matches highlight in **Text** and **Timeline**. **Edit** shows a highlighted
+preview beside each matching text field so native text editing and selection
+remain available. Match counts, navigation, an optional **Match case** checkbox,
+and the number of affected segments help review a bulk operation. Search uses
+the editable transcript; opening it from model-provided **Words** switches to
+Text to avoid applying offsets from a different representation.
+
+Search is literal, uses NFC canonical equivalence, and preserves accents,
+Khmer combining marks, coeng sequences, and emoji clusters. Matching must begin
+and end at complete grapheme boundaries. Partial base letters, vowels, or emoji
+components inside a cluster are not replaceable matches. It does not use
+space-based word boundaries or regular expressions, remove zero-width characters,
+or perform fuzzy spelling correction. Case-insensitive English search is the
+default. Original spelling and encoding outside replaced ranges remain intact.
+Timed searches stay within each segment; they never span a subtitle boundary.
+Matches do not overlap.
+
+**Replace one** changes the selected occurrence, then advances past the inserted
+text. **Replace all** applies the current match snapshot once, without recursively
+searching its replacement. Replacement strings such as `$&` are literal, and an
+empty replacement deletes matches. Each action creates one undo step, including
+bulk changes across many segments, and uses the normal autosave/conflict/recovery
+flow. Query and replacement field typing retain their own native undo behavior.
+Replacement never changes timestamps, cue order, or cue count. SRT/VTT downloads
+reflect the current draft immediately; server exports use the latest saved revision.
+Legacy untimed transcripts support the same text operations and TXT export.
+
+Queries are limited to 500 characters and replacement text to 10,000 characters.
+The resulting text is checked before allocation or editing against the existing
+10,000-character cue and 500,000-character transcript limits. An invalid bulk
+operation applies no partial changes; replacing a single occurrence may still be
+allowed. Searches above 10,000 matches ask for a narrower query and disable both
+replacement actions rather than silently replacing a truncated result list.
