@@ -2,7 +2,7 @@
 
 import { useT } from "@/lib/useLocale";
 
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Code2, Lightbulb, Mic } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
@@ -17,7 +17,7 @@ const USES = [
     description: "Write a narration in Khmer or English, turn it into speech, and download the audio for your next lesson, story, or video.",
     detail: "Write in either language", secondDetail: "Download your generated audio",
     action: "Create a voiceover", href: "/tts", Art: CreatorDoodle,
-    label: "A doodle of a creator recording a tutorial with a laptop and microphone",
+    label: "A doodle of a creator recording a tutorial with a laptop and microphone", Icon: Mic,
   },
   {
     title: "Capture ideas", hint: "Say it before it slips away.", audience: "For everyday ideas",
@@ -25,7 +25,7 @@ const USES = [
     description: "Talk through a thought or upload a recording. Turn your words into a transcript you can edit, copy, and come back to.",
     detail: "Record or upload a file", secondDetail: "Keep editable transcripts",
     action: "Start a transcript", href: "/stt", Art: IdeasDoodle,
-    label: "A doodle of someone capturing a spoken idea with a phone and notebook",
+    label: "A doodle of someone capturing a spoken idea with a phone and notebook", Icon: Lightbulb,
   },
   {
     title: "Build with voice", hint: "Make your app speak Khmer.", audience: "For developers",
@@ -33,7 +33,7 @@ const USES = [
     description: "Bring transcription, speech generation, and consented voice cloning into your own app. Create a separate API key for each project.",
     detail: "One API for all three tools", secondDetail: "Manage keys for each app",
     action: "Explore API keys", href: "/api-keys", Art: DeveloperDoodle,
-    label: "A doodle of a developer connecting voice tools to an app on her laptop",
+    label: "A doodle of a developer connecting voice tools to an app on her laptop", Icon: Code2,
   },
 ] as const;
 
@@ -64,7 +64,7 @@ export function CreativeUses() {
     <section id="ideas" aria-labelledby={`${id}-heading`} className="grid items-start gap-8 border-t border-line py-16 sm:gap-12 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
       <div className="lg:pt-4">
         <p className="text-xs font-medium tracking-wide text-accent">{t("A place for your next idea")}</p>
-        <h2 id={`${id}-heading`} className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("What will you make?")}</h2>
+        <h2 id={`${id}-heading`} className="mt-3 text-3xl font-bold tracking-[-0.04em] sm:text-[2.6rem]">{t("What will you make?")}</h2>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-soft">
           {t("A story to tell, a thought to save, or an app to build. Start with your words.")}</p>
         <div role="tablist" aria-label={t("Ways to use Bondeth")} aria-orientation="vertical" className="mt-7 space-y-2">
@@ -74,9 +74,9 @@ export function CreativeUses() {
               ref={(node) => { tabs.current[index] = node; }}
               onClick={() => setSelected(index)} onKeyDown={(event) => navigate(event, index)}
               className={cx("group flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition-colors",
-                selected === index ? "border-ink/30 bg-accent-soft/60" : "border-transparent hover:bg-surface-2")}>
-              <span aria-hidden className={cx("grid size-8 shrink-0 place-items-center rounded-lg border text-xs tabular-nums",
-                selected === index ? "border-ink/30 bg-accent text-accent-ink" : "border-line text-ink-soft")}>0{index + 1}</span>
+                selected === index ? "border-line bg-surface shadow-panel" : "border-transparent hover:bg-surface-2")}>
+              <span aria-hidden className={cx("grid size-10 shrink-0 place-items-center rounded-xl",
+                selected === index ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink-soft")}><item.Icon className="size-[18px]" /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold">{t(item.title)}</span>
                 <span className="mt-1 block text-xs leading-relaxed text-ink-soft">{t(item.hint)}</span>
@@ -92,7 +92,7 @@ export function CreativeUses() {
         <motion.div key={active.title} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
           <div className="relative bg-accent-soft/25 px-5 pt-5">
             <span className="inline-flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink-soft">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{t(active.audience)}
+              <active.Icon aria-hidden className="size-3.5 text-accent" />{t(active.audience)}
             </span>
             <Art className="mx-auto h-56 w-full sm:h-64 lg:h-72" label={t(active.label)} sizes="(max-width: 767px) 90vw, 540px" />
           </div>

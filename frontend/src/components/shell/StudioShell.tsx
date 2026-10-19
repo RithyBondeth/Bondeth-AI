@@ -46,9 +46,9 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <RecentsProvider key={user?.id ?? "anonymous"}>
       <Aurora />
-      <div className="flex min-h-dvh">
+      <div className="studio-shell flex min-h-dvh">
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r-[1.5px] border-frame bg-surface transition-[width] duration-300 in-data-[sidebar=collapsed]:w-[72px] lg:block">
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-frame bg-surface transition-[width] duration-300 in-data-[sidebar=collapsed]:w-[72px] lg:block">
           <SidebarContent pathname={pathname} />
         </aside>
 
@@ -86,7 +86,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
                   <current.icon className="size-4" />
                 </span>
                 <div className="min-w-0 leading-tight">
-                  <h1 className="truncate font-medium">{t(current.label)}</h1>
+                  <h1 className="truncate font-bold tracking-tight">{t(current.label)}</h1>
                   <p className="secondary-khmer khmer truncate text-xs leading-tight text-ink-soft">{current.km}</p>
                 </div>
               </motion.div>
@@ -130,7 +130,7 @@ function SidebarContent({ pathname, mobile }: { pathname: string; mobile?: boole
 
       <UsageMeter className={cx("mx-3 mb-3", hide)} />
 
-      <div className={cx("mx-3 mb-3 overflow-hidden rounded-xl border border-dashed border-line bg-accent-soft/30 p-4", hide)}>
+      <div className={cx("mx-3 mb-3 overflow-hidden rounded-2xl border border-line bg-accent-soft/40 p-4", hide)}>
         <TwinVoicesDoodle className="h-16 w-28 text-ink" still loading="eager" />
         <p className="mt-2 text-sm font-medium">{t("Your voice, any words")}</p>
         <p className="text-xs text-ink-soft">{t("Save a 3-30 s sample once, then clone it from any tool.")}</p>
@@ -179,7 +179,7 @@ function NavSection({ title, items, pathname, hide, locked }: {
   const t = useT();
   return (
     <div>
-      <p className={cx("mb-1.5 px-3 text-xs font-medium tracking-wide text-ink-soft", hide)}>{t(title)}</p>
+      <p className={cx("mb-2 px-3 text-[11px] font-medium tracking-wide text-ink-soft", hide)}>{t(title)}</p>
       <ul className="space-y-0.5">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -190,7 +190,7 @@ function NavSection({ title, items, pathname, hide, locked }: {
                   "in-data-[sidebar=collapsed]:lg:justify-center",
                   active ? "text-ink" : "text-ink-soft hover:bg-surface-2 hover:text-ink")}>
                 {active && (
-                  <motion.span layoutId="sidebar-active" className="absolute inset-0 rounded-lg border border-ink/20 bg-accent-soft"
+                  <motion.span layoutId="sidebar-active" className="absolute inset-0 rounded-xl bg-accent-soft"
                     transition={{ type: "spring", stiffness: 420, damping: 34 }} />
                 )}
                 <item.icon className={cx("relative size-[18px] shrink-0", active && "text-accent")} />
