@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
-import { Logo, LogoMark } from "@/components/Logo";
+import { Logo, LogoMark, LogoWordmark } from "@/components/Logo";
 import {
   IdeasDoodle, ListenerDoodle, SpeakerDoodle, TwinVoicesDoodle,
 } from "@/components/doodles";
@@ -267,7 +267,7 @@ export function StudioPreview() {
         <div className="flex flex-col gap-4 border-r border-line bg-paper/70 p-2 sm:p-4">
           <span className="flex items-center justify-center gap-1.5 px-1 sm:justify-start">
             <LogoMark className="size-7 shrink-0" />
-            <span className="hidden text-sm font-bold tracking-tight sm:inline">Bondeth</span>
+            <LogoWordmark compact className="hidden sm:inline-block" />
           </span>
           <div className="space-y-1 text-sm" role="tablist" aria-label={t("Studio tools")}>
             {TOOLS.map(({ id, label, Icon }) => {
