@@ -167,7 +167,8 @@ export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", 
       <div className="relative flex flex-col">
         <Aurora />
         <div className="flex items-center justify-between p-4 sm:p-6">
-          <Link href="/" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">
+          <Logo className="lg:hidden" />
+          <Link href="/" className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2 hover:text-ink lg:inline-flex">
             <ArrowLeft className="size-4" /> {t(" Home")}</Link>
           <div role="group" aria-label={t("Language and appearance")} className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-line bg-surface p-1">
             <LanguageSwitch />

@@ -1,6 +1,11 @@
 <div align="center">
 
-# Bondeth AI (បណ្ឌិត AI)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="frontend/public/brand/logo-dark.svg">
+  <img src="frontend/public/brand/logo.svg" alt="Bondeth-AI — Bubble B doodle logo" width="380">
+</picture>
+
+# Bondeth AI
 
 **An open-source bilingual (Khmer and English) voice intelligence platform with Speech-to-Text, Text-to-Speech, and zero-shot voice cloning.**
 
