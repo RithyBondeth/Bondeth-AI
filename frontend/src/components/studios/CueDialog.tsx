@@ -7,7 +7,7 @@ import { subtitleTimestamp } from "@/lib/subtitles";
 import type { TranscriptSegment } from "@/lib/types";
 import { useT } from "@/lib/useLocale";
 
-export type CueAction = { kind: "timing" | "split"; index: number; caret?: number; playhead: number | null };
+export type CueAction = { kind: "timing" | "split"; index: number; caret?: number; suggestedEnd?: number; playhead: number | null };
 
 export function CueDialog({ action, segments, language, canUsePlayback, position, onCommit, onClose }: {
   action: CueAction; segments: TranscriptSegment[]; canUsePlayback: boolean;
@@ -20,7 +20,7 @@ export function CueDialog({ action, segments, language, canUsePlayback, position
   const middle = Math.floor((Math.round(cue.start * 1000) + Math.round(cue.end * 1000)) / 2) / 1000;
   const suggested = action.playhead != null && action.playhead > cue.start && action.playhead < cue.end ? action.playhead : middle;
   const [start, setStart] = useState(() => subtitleTimestamp(splitting ? suggested : cue.start));
-  const [end, setEnd] = useState(() => subtitleTimestamp(cue.end));
+  const [end, setEnd] = useState(() => subtitleTimestamp(action.suggestedEnd ?? cue.end));
   const [parts, setParts] = useState(() => splitCueText(cue.text, action.caret));
   const [error, setError] = useState<string | null>(null);
   const errorId = useId();
@@ -28,6 +28,7 @@ export function CueDialog({ action, segments, language, canUsePlayback, position
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const editorRoot = previous?.closest("[data-transcript-editor]");
     const dialog = form.current?.closest<HTMLElement>('[role="dialog"]');
     form.current?.querySelector<HTMLInputElement>("input")?.focus();
     const trap = (event: KeyboardEvent) => {
@@ -38,8 +39,12 @@ export function CueDialog({ action, segments, language, canUsePlayback, position
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     dialog?.addEventListener("keydown", trap);
-    return () => { dialog?.removeEventListener("keydown", trap); previous?.focus(); };
-  }, []);
+    return () => {
+      dialog?.removeEventListener("keydown", trap);
+      if (previous?.isConnected) previous.focus();
+      else editorRoot?.querySelector<HTMLTextAreaElement>(`[data-cue-index="${action.index}"] textarea`)?.focus();
+    };
+  }, [action.index]);
 
   const setFromPlayback = (field: "start" | "end") => {
     const time = position();
@@ -63,6 +68,9 @@ export function CueDialog({ action, segments, language, canUsePlayback, position
       <p className="text-sm leading-relaxed text-ink-soft">{t(splitting
         ? "Review the split time and both text parts. The suggested time uses playback when it is inside the segment, otherwise the midpoint."
         : "Adjust when this subtitle appears and disappears. Apply to autosave the new timing.")}</p>
+      {action.suggestedEnd !== undefined && <p className="text-sm text-ink-soft">{t("Suggested end: {before} → {after}. Review against the recording before applying; only this segment changes.", {
+        before: subtitleTimestamp(cue.end), after: subtitleTimestamp(action.suggestedEnd),
+      })}</p>}
       <p className="text-xs text-ink-soft">{t("Use HH:MM:SS.mmm or seconds, for example 00:00:02.500 or 2.5.")}</p>
       <label className="block space-y-2 text-sm">
         <span>{t(splitting ? "Split time" : "Start time")}</span>

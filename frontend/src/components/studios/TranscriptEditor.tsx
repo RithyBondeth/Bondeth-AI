@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { TranscriptAudio, type TranscriptPlayback } from "@/components/audio/TranscriptAudio";
 import { CueDialog, type CueAction } from "@/components/studios/CueDialog";
 import { TranscriptFindReplace } from "@/components/studios/TranscriptFindReplace";
+import { SubtitleQuality, type SubtitlePreviewHandle } from "@/components/studios/SubtitleQuality";
 import { TranscriptMatches } from "@/components/studios/TranscriptMatches";
 import { Badge, Button, IconButton, Panel, Segmented, Textarea, cx, useToast } from "@/components/ui";
 import { LANG_LABEL, formatSeconds } from "@/lib/format";
@@ -27,6 +28,9 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
   const searchInput = useRef<HTMLInputElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [activeSegment, setActiveSegment] = useState(-1);
+  const previewTime = useRef(0);
+  const qualityPreview = useRef<SubtitlePreviewHandle>(null);
+  const [qualityOpen, setQualityOpen] = useState(false);
   const [sourceRemoved, setSourceRemoved] = useState(false);
   const [action, setAction] = useState<CueAction | null>(null);
   const caret = useRef<Record<number, number>>({});
@@ -72,6 +76,24 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
     editor.edit(next); highlight(next); caret.current = {};
     return null;
   };
+  const updatePreview = (time: number) => {
+    previewTime.current = time;
+    qualityPreview.current?.setTime(time);
+  };
+  const preview = (time: number) => {
+    updatePreview(time);
+    playback.current?.preview(time);
+    setActiveSegment(activeCue(draft.segments, time));
+  };
+  const navigateIssue = (index: number) => {
+    setView("edit");
+    preview(draft.segments![index].start);
+    requestAnimationFrame(() => {
+      const field = root.current?.querySelector<HTMLTextAreaElement>(`[data-cue-index="${index}"] textarea`);
+      field?.focus({ preventScroll: true });
+      field?.scrollIntoView({ block: "center", behavior: "instant" });
+    });
+  };
   const travel = (back: boolean) => { highlight(back ? editor.undo() : editor.redo()); caret.current = {}; };
   const openAction = (kind: CueAction["kind"], index: number) => setAction({ kind, index,
     caret: caret.current[index], playhead: playback.current?.position() ?? null });
@@ -105,7 +127,7 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
     } catch (err) { toast(err instanceof Error ? err.message : "Couldn't replace transcript text.", "error"); }
   };
 
-  return <div ref={root} onKeyDownCapture={(event) => {
+  return <div ref={root} data-transcript-editor onKeyDownCapture={(event) => {
     if (event.nativeEvent.isComposing || action || (event.target as HTMLElement).closest('[role="dialog"]')) return;
     if (event.key === "Escape" && search.open) { event.preventDefault(); closeSearch(); return; }
     if (event.altKey || !(event.ctrlKey || event.metaKey)) return;
@@ -127,6 +149,7 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
       onRemoved={() => { setSourceRemoved(true); setActiveSegment(-1); }}
       onPosition={(time) => {
         setActiveSegment(activeCue(draft.segments, time));
+        updatePreview(time < 0 ? playback.current?.position() ?? -1 : time);
       }} />}
     <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
       <Segmented label={t("Transcript view")} value={view} onChange={setView} options={views} className="max-w-full flex-wrap [&_button]:px-2" />
@@ -135,6 +158,11 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
         <Button variant="secondary" size="sm" disabled={!editor.canRedo || resolving} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" onClick={() => travel(false)}>{t("Redo")}</Button>
       </div>
       <Button data-find-toggle variant="secondary" size="sm" aria-expanded={search.open} aria-keyshortcuts="Control+F Meta+F Control+H" onClick={() => openSearch()}>{t("Find and replace")}</Button>
+      {draft.segments && <Button variant="secondary" size="sm" aria-expanded={qualityOpen}
+        onClick={() => {
+          setQualityOpen(!qualityOpen);
+          if (!qualityOpen) requestAnimationFrame(() => qualityPreview.current?.setTime(previewTime.current));
+        }}>{t("Quality and preview")}</Button>}
       <div className="ml-auto flex flex-wrap items-center gap-1.5" role="group" aria-label={t("Transcript exports")}>
         <Download aria-hidden className="size-3.5 text-ink-soft" />
         {(["txt", "srt", "vtt"] as const).map((format) => <Button key={format} variant="secondary" size="sm"
@@ -146,6 +174,13 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
     </div>
     {search.open && <TranscriptFindReplace search={search} inputRef={searchInput} resolving={resolving} timed={!!draft.segments}
       onMove={moveMatch} onReplace={replace} onClose={closeSearch} />}
+    {qualityOpen && draft.segments && <SubtitleQuality ref={qualityPreview} segments={draft.segments}
+      duration={document.audio_duration_seconds} language={document.language_code} resolving={resolving}
+      onPreview={preview} onNavigate={navigateIssue} onFix={(issue, end) => {
+        setView("edit");
+        setAction({ kind: issue.kind === "length" ? "split" : "timing", index: issue.segment,
+          playhead: null, suggestedEnd: end ?? undefined });
+      }} />}
     {(error || status === "conflict") && <div role="alert" className="space-y-3 border-b border-line bg-surface-2 p-5">
       <p className="text-sm text-rose">{status === "conflict"
         ? t("This transcript changed elsewhere. Your edits are still here. Choose which version to keep.")
@@ -164,7 +199,7 @@ export function TranscriptEditor({ document, ownerId }: { document: TranscriptDo
         {draft.segments && <> {t("Edit text and timing, split at the text cursor, or merge with the next segment. You can undo every applied change.")}</>}</p>
       {draft.segments?.some((segment, index, all) => index + 1 < all.length && segment.end > all[index + 1].start)
         && <p role="note" className="text-xs leading-relaxed text-ink-soft">{t("Some segments overlap. Review their timing before exporting; intentional overlaps are allowed.")}</p>}
-      {draft.segments ? draft.segments.map((segment, index) => <div key={index} data-active={activeSegment === index} className="block space-y-2 rounded-xl p-2 -m-2 data-[active=true]:bg-accent-soft data-[active=true]:ring-1 data-[active=true]:ring-accent">
+      {draft.segments ? draft.segments.map((segment, index) => <div key={index} data-cue-index={index} data-active={activeSegment === index} className="block space-y-2 rounded-xl p-2 -m-2 data-[active=true]:bg-accent-soft data-[active=true]:ring-1 data-[active=true]:ring-accent">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
           <span>{t("Segment ")}{index + 1}</span>{canSeek ? <button type="button" aria-label={t("Play segment {number}", { number: index + 1 })}
             aria-current={activeSegment === index ? "true" : undefined} onClick={() => playback.current?.seek(segment.start)}

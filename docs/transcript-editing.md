@@ -200,3 +200,44 @@ The resulting text is checked before allocation or editing against the existing
 operation applies no partial changes; replacing a single occurrence may still be
 allowed. Searches above 10,000 matches ask for a narrower query and disable both
 replacement actions rather than silently replacing a truncated result list.
+
+## Subtitle quality and live preview
+
+Choose **Quality and preview** on any timed transcript. The preview shows the
+current draft at the source audio position, including all simultaneous captions.
+Silence and the exact end boundary have no caption. Preview text uses the same
+blank-line normalization as SRT/VTT and renders as literal text. The panel wraps
+to its width; it does not simulate a particular video player's font or layout,
+and wrapping here does not add line breaks to exports.
+
+Use **Preview position** to scrub silently, even without a saved recording.
+Scrubbing pauses any playing source audio; **Listen** resumes from that position.
+Click a warning (or focus it and press Enter) to open Edit, focus its text field,
+and preview the segment's start without starting playback or fetching audio.
+Legacy transcripts without timing retain their text editor; no timing is invented.
+
+Checks are advisory and never block saving or exports. Defaults flag more than
+42 visible units in an authored line, more than two nonblank lines, more than
+17 visible units per second, display times below 1 or above 7 seconds, overlaps,
+and empty captions that exports omit. Visible units are NFC grapheme clusters
+with whitespace and standalone invisible/combining characters excluded. Khmer
+consonants and their marks, joined emoji, and canonical Latin equivalents are
+counted together, not as individual code points or UTF-16 units. Punctuation
+counts as visible text. These are transparent editing heuristics, not calibrated
+Khmer or English reading guarantees. Nested overlaps are detected, too; an
+overlap can be intentional. Issues are shown in pages of 50 for large documents.
+
+**Review split** opens the existing split dialog for a long caption. Review both
+text parts and the suggested midpoint; it is not word alignment. **Review timing
+suggestion** proposes a longer display for short/fast cues, a shorter display for
+long cues, or an earlier end to remove an overlap with the next cue. Suggestions
+never shift other cues or exceed the next cue's start or known recording duration.
+If the available space is insufficient, no automatic timing suggestion is offered;
+click the warning to edit manually. Timing changes can affect alignment and need
+a listening check. Fixing one warning may leave others to review.
+
+Opening, navigating, scrubbing, and cancelling a suggestion never edit the draft.
+Only **Apply timing** or **Apply split** commits it, through normal validation and
+autosave. Each applied fix is one undo/redo step, including during an in-flight
+save. Failed/conflicting saves retain the existing recovery controls. SRT/VTT
+exports immediately include applied draft changes, even before a save finishes.
