@@ -8,7 +8,7 @@ import { formatSeconds } from "@/lib/format";
 import { useT } from "@/lib/useLocale";
 import type { TranscriptionDetail } from "@/lib/types";
 
-export type TranscriptPlayback = { seek: (time: number) => void; position: () => number | null };
+export type TranscriptPlayback = { seek: (time: number) => void; position: () => number | null; preview: (time: number) => void };
 
 /** Fetch only through the authenticated API; URLs and playback never outlive the editor. */
 export const TranscriptAudio = forwardRef<TranscriptPlayback, {
@@ -20,6 +20,7 @@ export const TranscriptAudio = forwardRef<TranscriptPlayback, {
   const objectUrl = useRef<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
+  const playRequest = useRef(0);
   const pendingSeek = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -77,20 +78,27 @@ export const TranscriptAudio = forwardRef<TranscriptPlayback, {
   };
   const play = async (time?: number) => {
     if (!available || removing) return;
+    const sequence = ++playRequest.current;
     setError(null);
     if (time !== undefined) pendingSeek.current = time;
     await load();
-    if (!objectUrl.current || !audio.current || request.current?.signal.aborted) return;
+    if (sequence !== playRequest.current || !objectUrl.current || !audio.current || request.current?.signal.aborted) return;
     if (pendingSeek.current !== null && audio.current.readyState >= 1) {
       seek(pendingSeek.current); pendingSeek.current = null;
     }
     try { await audio.current.play(); }
-    catch { if (!request.current?.signal.aborted) setError("Couldn't play source audio. Try again."); }
+    catch { if (sequence === playRequest.current && !request.current?.signal.aborted) setError("Couldn't play source audio. Try again."); }
   };
-  useImperativeHandle(ref, () => ({ seek: (time) => { void play(time); },
+  useImperativeHandle(ref, () => ({ preview: (time) => {
+    playRequest.current++;
+    audio.current?.pause();
+    if (audio.current && audio.current.readyState >= 1) seek(time);
+    else pendingSeek.current = time;
+  }, seek: (time) => { void play(time); },
     position: () => audio.current && audio.current.readyState >= 1 ? audio.current.currentTime : null }));
 
   const remove = async () => {
+    playRequest.current++;
     setRemoving(true); setError(null); audio.current?.pause();
     try {
       await api(`/api/v1/transcriptions/${id}/source-audio`, { method: "DELETE", auth: "required" });
