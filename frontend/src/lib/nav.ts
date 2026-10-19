@@ -1,4 +1,4 @@
-import { AudioLines, CircleUserRound, FolderOpen, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
+import { AudioLines, BookOpenText, CircleUserRound, FolderOpen, History, KeyRound, Library, Mic, Sparkles, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; km: string; icon: LucideIcon; description: string };
 
@@ -26,6 +26,9 @@ export const LIBRARY: NavItem[] = [
 export const ACCOUNT: NavItem = { href: "/account", label: "Account", km: "គណនី", icon: CircleUserRound,
   description: "Profile, email confirmation, password and account deletion." };
 
+export const API_DOCS: NavItem = { href: "/api", label: "API docs", km: "ឯកសារ API", icon: BookOpenText,
+  description: "Integrate Khmer and English voice tools into your apps." };
+
 export function findNav(pathname: string): NavItem | undefined {
-  return [...WORKSPACES, ...LIBRARY, ACCOUNT].find((item) => pathname.startsWith(item.href));
+  return [...WORKSPACES, ...LIBRARY, ACCOUNT, API_DOCS].find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 }

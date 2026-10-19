@@ -26,6 +26,7 @@ The API address comes from `NEXT_PUBLIC_API_URL` (default `http://localhost:8000
 | `/history/[id]` | Transcript editing with autosave, conflict handling, and TXT/SRT/VTT export |
 | `/audio` | Persistent generated speech and clones, with search, playback, download and deletion |
 | `/voices`, `/api-keys` | Saved voice samples and developer access |
+| `/api` | In-app API guide with cURL, Node.js, Python, Next.js, Express and Laravel examples, setup instructions, upload/audio guidance, job polling and error reference |
 | `/forgot-password`, `/reset-password`, `/verify-email` | Email account recovery |
 | `/voice-consent` | Voice ownership and consent information |
 
