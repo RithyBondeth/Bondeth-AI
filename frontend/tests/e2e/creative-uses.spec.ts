@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("illustrated use cases support pointer and keyboard navigation", async ({ page }) => {
   await page.goto("/");
   const tabs = page.getByRole("tablist", { name: "Ways to use Bondeth" });
-  const panel = page.getByRole("tabpanel");
+  const panel = page.locator("#ideas").getByRole("tabpanel");
   const creators = tabs.getByRole("tab", { name: /Make content/ });
   const ideas = tabs.getByRole("tab", { name: /Capture ideas/ });
   const developers = tabs.getByRole("tab", { name: /Build with voice/ });

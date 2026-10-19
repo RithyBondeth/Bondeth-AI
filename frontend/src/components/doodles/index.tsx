@@ -7,19 +7,19 @@ import type { ComponentProps } from "react";
 
 import { Doodle, DoodleText, Fill, Stroke } from "./Doodle";
 
-type Props = { className?: string; label?: string } & Pick<ComponentProps<typeof Doodle>, "x" | "y" | "width" | "height" | "still">;
+type Props = { className?: string; label?: string; preload?: boolean } & Pick<ComponentProps<typeof Doodle>, "x" | "y" | "width" | "height" | "still">;
 const INK = 1.8;
 const PAPER = "var(--art-paper)";
 const ORANGE = "var(--art-orange)";
 const SPARKLE = "M12 2 Q13 11 22 12 Q13 13 12 22 Q11 13 2 12 Q11 11 12 2 Z";
 
 /** Hand-drawn scenes share one ink-and-saffron style and use responsive image sizes. */
-function Illustration({ name, className, label, hero = false, sizes, loading }: Props & {
+function Illustration({ name, className, label, hero = false, preload = false, sizes, loading }: Props & {
   name: string; hero?: boolean; sizes?: string; loading?: "lazy" | "eager";
 }) {
   const t = useT();
   return <Image src={`/illustrations/${name}.png`} alt={label ? t(label) : ""}
-    width={1448} height={1086} preload={hero} loading={loading}
+    width={1448} height={1086} preload={hero || preload} loading={loading}
     sizes={sizes ?? (hero ? "(max-width: 1023px) 90vw, 540px" : "(max-width: 767px) 80vw, 384px")}
     className={`illustration-art object-contain ${className ?? ""}`} />;
 }

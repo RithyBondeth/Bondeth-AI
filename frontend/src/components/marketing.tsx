@@ -2,20 +2,19 @@
 
 import { useT } from "@/lib/useLocale";
 
-import { ArrowRight, AudioLines, Check, Mic, Sparkles } from "lucide-react";
+import { ArrowRight, AudioLines, Check, Code2, Mic, Sparkles } from "lucide-react";
 import { motion, useInView, useReducedMotion, type Variants } from "motion/react";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
 import { Logo, LogoMark } from "@/components/Logo";
 import {
-  CurlyArrowDoodle, HeroScene, IdeasDoodle, ListenerDoodle, SparkleDoodle, SpeakerDoodle, SquiggleUnderline, TwinVoicesDoodle,
+  IdeasDoodle, ListenerDoodle, SpeakerDoodle, TwinVoicesDoodle,
 } from "@/components/doodles";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cx } from "@/components/ui";
-import { API_URL } from "@/lib/api";
 import { useHydrated, useUser } from "@/lib/hooks";
 
 const stagger: Variants = { hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } } };
@@ -67,7 +66,7 @@ const FOOTER_LINKS: { title: string; km: string; links: { label: string; href: s
     { label: "Voice Clone", href: "/clone" },
   ] },
   { title: "Developers", km: "អ្នកអភិវឌ្ឍ", links: [
-    { label: "API docs", href: `${API_URL}/docs`, external: true },
+    { label: "API docs", href: "/api" },
     { label: "API keys", href: "/api-keys" },
     { label: "GitHub", href: GITHUB, external: true },
   ] },
@@ -80,7 +79,7 @@ const FOOTER_LINKS: { title: string; km: string; links: { label: string; href: s
 function Footer() {
   const t = useT();
   return (
-    <footer className="mt-24 border-t-2 border-dashed border-line">
+    <footer className="mt-24 border-t border-line bg-surface/60">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div className="space-y-4">
           <Logo />
@@ -115,24 +114,22 @@ function Footer() {
 export function Hero() {
   const t = useT();
   return (
-    <section className="grid items-center gap-8 pb-10 pt-12 sm:gap-12 sm:pt-16 lg:min-h-[600px] lg:grid-cols-[1fr_1.05fr] lg:gap-6 lg:pb-12 lg:pt-16">
+    <>
+    <section className="grid items-center gap-10 pb-10 pt-10 sm:gap-12 sm:pt-14 lg:min-h-[570px] lg:grid-cols-[1fr_1fr] lg:gap-12 lg:pb-12 lg:pt-12">
       <motion.div variants={stagger} initial="hidden" animate="visible">
         <motion.p variants={rise}
-          className="marker-label khmer mb-5 inline-flex items-center gap-2.5 text-xs font-medium">
-          <SparkleDoodle className="size-4" /> {t(" បណ្ឌិត AI · Khmer & English voice studio")}</motion.p>
-        <motion.h1 variants={rise} className="font-sans text-5xl font-bold leading-[1.08] tracking-[-0.04em] sm:text-6xl lg:text-[4.25rem]">
+          className="marker-label khmer mb-6 inline-flex max-w-full items-center gap-2 text-[11px] font-medium sm:text-xs">
+          <AudioLines aria-hidden className="size-4 shrink-0 text-accent" /> {t(" បណ្ឌិត AI · Khmer & English voice studio")}</motion.p>
+        <motion.h1 variants={rise} className="font-sans text-[2.85rem] font-bold leading-[1.06] tracking-[-0.055em] sm:text-6xl lg:text-[4.5rem]">
           {t("Speak Khmer.")}<br />
-          <span className="relative inline-block">
-            <span className="relative z-10 text-ink">{t("Be heard.")}</span>
-            <SquiggleUnderline className="absolute -bottom-1 left-0 h-5 w-full" />
-          </span>
+          <span className="text-accent">{t("Be heard.")}</span>
         </motion.h1>
-        <motion.p variants={rise} className="khmer mt-7 max-w-lg text-lg text-ink-soft">
+        <motion.p variants={rise} className="secondary-khmer khmer mt-6 max-w-lg text-base text-ink-soft">
           និយាយ ហើយឲ្យ AI សរសេរ អាន និងចម្លងសំឡេងជំនួសអ្នក។
         </motion.p>
-        <motion.p variants={rise} className="mt-3 max-w-[28rem] text-base leading-relaxed text-ink-soft">
+        <motion.p variants={rise} className="mt-3 max-w-[28rem] text-[15px] leading-[1.8] text-ink-soft">
           {t("Transcribe speech, turn text into natural speech, and clone a voice from a short clip. Built for Khmer, fluent in English, free and open source.")}</motion.p>
-        <motion.div variants={rise} className="mt-9 flex flex-wrap items-center gap-3">
+        <motion.div variants={rise} className="mt-7 flex flex-wrap items-center gap-3">
           <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
             <Link href="/stt"
               className="ink-button inline-flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-ink transition-colors hover:brightness-105">
@@ -143,27 +140,94 @@ export function Hero() {
             <Link href="/tts" className="ink-button inline-flex h-12 items-center bg-surface px-6 font-medium">
               {t("Try text to speech")}</Link>
           </motion.div>
-          <CurlyArrowDoodle className="hidden h-12 w-16 -rotate-12 text-ink sm:block" />
         </motion.div>
-        <motion.ul variants={rise} className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-soft">
-          {[t("Khmer & English"), t("No installation needed")].map((label) => <li key={label} className="flex items-center gap-1.5"><Check aria-hidden className="size-3.5 text-accent" />{t(label)}</li>)}
-        </motion.ul>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 90, damping: 18, delay: 0.15 }}>
-        <HeroScene className="mx-auto w-full max-w-[540px]" />
-      </motion.div>
+      <HeroShowcase />
     </section>
+    <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 border-y border-line py-5 text-xs text-ink-soft sm:justify-between sm:gap-x-4">
+      <span className="flex items-center gap-2"><AudioLines aria-hidden className="size-4 text-accent" />{t("Khmer & English")}</span>
+      <span className="flex items-center gap-2"><Check aria-hidden className="size-4 text-accent" />{t("No installation needed")}</span>
+      <a href={GITHUB} target="_blank" rel="noreferrer" className="flex items-center gap-2 transition-colors hover:text-ink"><Code2 aria-hidden className="size-4 text-accent" />{t("Free and open source")}</a>
+    </div>
+    </>
   );
 }
 
 const TOOLS = [
-  { id: "stt", label: "Speech to Text", Icon: Mic },
-  { id: "tts", label: "Text to Speech", Icon: AudioLines },
-  { id: "clone", label: "Voice Clone", Icon: Sparkles },
+  { id: "stt", label: "Speech to Text", Icon: Mic, Art: SpeakerDoodle,
+    description: "Record or upload Khmer or English. Khmer comes back as clean, editable text.",
+    artLabel: "A Cambodian woman speaking into a studio microphone" },
+  { id: "tts", label: "Text to Speech", Icon: AudioLines, Art: ListenerDoodle,
+    description: "Type in Khmer, English or both. Prices, dates and percentages are read in full.",
+    artLabel: "A Cambodian man listening with headphones" },
+  { id: "clone", label: "Voice Clone", Icon: Sparkles, Art: TwinVoicesDoodle,
+    description: "Save a 3-30 second sample with consent, then make that voice say anything.",
+    artLabel: "A speaker and her dashed-outline voice clone with a hand-drawn audio waveform" },
 ] as const;
 type ToolId = (typeof TOOLS)[number]["id"];
+
+function HeroShowcase() {
+  const t = useT();
+  const id = useId();
+  const [selected, setSelected] = useState(0);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const reduce = useReducedMotion();
+  const active = TOOLS[selected];
+  const { Art, Icon } = active;
+
+  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    switch (event.key) {
+      case "ArrowRight": next = (index + 1) % TOOLS.length; break;
+      case "ArrowLeft": next = (index + TOOLS.length - 1) % TOOLS.length; break;
+      case "Home": next = 0; break;
+      case "End": next = TOOLS.length - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    setSelected(next);
+    tabs.current[next]?.focus();
+  }
+
+  return (
+    <motion.div initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 100, damping: 22, delay: 0.15 }} className="hero-showcase min-w-0">
+      <div role="tablist" aria-label={t("Explore voice tools")} className="hero-tool-tabs grid grid-cols-3 gap-1 p-1.5">
+        {TOOLS.map(({ id: toolId, label, Icon: ToolIcon }, index) => (
+          <button key={toolId} type="button" role="tab" id={`${id}-${toolId}`} aria-selected={selected === index}
+            aria-controls={`${id}-panel`} tabIndex={selected === index ? 0 : -1}
+            ref={(node) => { tabs.current[index] = node; }}
+            onClick={() => setSelected(index)} onKeyDown={(event) => navigate(event, index)}
+            className={cx("flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 py-3 text-center text-[11px] font-medium transition-colors sm:text-xs",
+              selected === index ? "bg-accent-soft text-ink" : "text-ink-soft hover:bg-surface-2")}>
+            <ToolIcon aria-hidden className={cx("size-[18px]", selected === index && "text-accent")} />
+            {t(label)}
+          </button>
+        ))}
+      </div>
+      <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${active.id}`} tabIndex={0} className="rounded-2xl">
+        <div className="hero-stage">
+          <motion.div key={active.id} initial={reduce ? false : { opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.22 }} className="relative w-full">
+            <Art className="h-64 w-full sm:h-72 lg:h-80" label={t(active.artLabel)} preload={selected === 0} />
+          </motion.div>
+        </div>
+        <div className="hero-tool-detail flex min-h-32 items-center gap-4 rounded-[20px] border border-line bg-surface p-5 shadow-panel">
+          <span aria-hidden className="hidden size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent min-[380px]:grid"><Icon className="size-5" /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold tracking-tight">{t(active.label)}</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">{t(active.description)}</p>
+          </div>
+          <Link href={`/${active.id}`} aria-label={`${t("Open ")}${t(active.label)}`}
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-ink transition-transform hover:translate-x-0.5">
+            <ArrowRight aria-hidden className="size-5" />
+          </Link>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 const CYCLE_MS = 4500;
 
@@ -175,9 +239,10 @@ export function StudioPreview() {
   const reduce = useReducedMotion();
   const [tool, setTool] = useState<ToolId>("stt");
   const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   // Loops and the tour run only while the mock is on screen and not hovered, never with reduced motion.
   const live = inView && !reduce;
-  const touring = live && !hovered;
+  const touring = live && !hovered && !focused;
 
   useEffect(() => {
     if (!touring) return;
@@ -188,16 +253,18 @@ export function StudioPreview() {
   }, [touring, tool]);
 
   return (
-    <motion.section ref={ref} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }}
+    <motion.section ref={ref} initial={false}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
       onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
-      aria-label={t("Interactive studio preview")} className="studio-preview paper-panel relative mx-auto mb-10 mt-6 overflow-hidden bg-surface">
-      <div className="flex h-10 items-center gap-1.5 border-b border-line px-4">
-        {[0, 1, 2].map((n) => <span key={n} className="size-2 rounded-full border border-ink/60 bg-accent/60" />)}
-        <span className="mx-auto text-xs text-ink-soft">{t("A peek inside your studio /")} {tool}</span>
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
+      aria-label={t("Interactive studio preview")} className="studio-preview paper-panel relative mx-auto mb-8 mt-12 overflow-hidden bg-surface sm:mt-16">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-line bg-surface-2/40 px-4 py-3 sm:px-5">
+        <span className="flex items-center gap-2 text-xs font-medium text-ink-soft"><AudioLines aria-hidden className="size-4 text-accent" />{t("A peek inside your studio /")} {tool}</span>
+        <Link href={`/${tool}`} className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-ink hover:text-accent">{t("Open ")}<ArrowRight aria-hidden className="size-3.5" /></Link>
       </div>
       <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[200px_1fr]">
-        <div className="flex flex-col gap-4 border-r border-line p-2 sm:p-3">
+        <div className="flex flex-col gap-4 border-r border-line bg-paper/70 p-2 sm:p-4">
           <span className="flex items-center justify-center gap-1.5 px-1 sm:justify-start">
             <LogoMark className="size-7 shrink-0" />
             <span className="hidden text-sm font-bold tracking-tight sm:inline">Bondeth</span>
@@ -221,7 +288,7 @@ export function StudioPreview() {
             })}
           </div>
         </div>
-        <div className="relative grid min-h-72 min-w-0 place-items-center p-4 sm:p-8">
+        <div className="relative grid min-h-72 min-w-0 place-items-center bg-accent-soft/10 p-4 sm:min-h-80 sm:p-8">
           {/* Keyed so each tool fades in fresh; no exit wait, so switching is instant. */}
           <motion.div key={tool} className="flex w-full min-w-0 max-w-md flex-col items-center gap-5"
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
@@ -332,7 +399,7 @@ function CloneMock({ live }: { live: boolean }) {
 const FEATURES = [
   { href: "/stt", title: "Speech to Text", km: "សំឡេង → អក្សរ",
     body: "Record or upload Khmer or English. Khmer comes back as clean, editable text.",
-    doodle: <SpeakerDoodle className="h-48 w-full" label="A Cambodian woman speaking into a studio microphone" /> },
+    doodle: <SpeakerDoodle className="h-52 w-full md:h-64" label="A Cambodian woman speaking into a studio microphone" /> },
   { href: "/tts", title: "Text to Speech", km: "អក្សរ → សំឡេង",
     body: "Type in Khmer, English or both. Prices, dates and percentages are read in full.",
     doodle: <ListenerDoodle className="h-48 w-full" label="A Cambodian man listening with headphones" /> },
@@ -344,31 +411,29 @@ const FEATURES = [
 export function Features() {
   const t = useT();
   return (
-    <section id="tools" className="pb-16 pt-16 sm:pb-20">
+    <section id="tools" className="pb-16 pt-14 sm:pb-20 sm:pt-20">
       <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-9 max-w-xl">
-        <p className="khmer text-sm font-medium text-accent">សំឡេងតែមួយ ឧបករណ៍បី</p>
-        <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{t("Three tools, one studio")}</h2>
+        <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-[2.6rem]">{t("Three tools, one studio")}</h2>
         <p className="mt-3 text-sm leading-relaxed text-ink-soft">{t("From your first word to the final recording. Find the right tool for what you want to make.")}</p>
       </motion.div>
       <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}
-        className="grid gap-8 md:grid-cols-3">
+        className="grid gap-5 md:grid-cols-2">
         {FEATURES.map((f, index) => (
-          <motion.div key={f.href} variants={rise} className="feature-paper paper-panel">
-            <PaperCard href={f.href}>
-              <div className="flex h-52 items-center justify-center overflow-hidden border-b border-dashed border-line p-2">
+          <motion.div key={f.href} variants={rise} className={cx("feature-paper paper-panel overflow-hidden", index === 0 && "md:row-span-2")}>
+            <PaperCard href={f.href} featured={index === 0}>
+              <div className={cx("feature-art flex items-center justify-center overflow-hidden p-3", index === 0 ? "h-52 md:min-h-72 md:flex-1" : "h-44 md:h-full")}>
                 <motion.div className="w-full" whileHover={{ scale: 1.04 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
                   {f.doodle}
                 </motion.div>
               </div>
-              <div className="mt-5 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 flex-col p-6">
                 <p className="khmer text-xs text-ink-soft">{f.km}</p>
-                <span className="text-xs tabular-nums text-ink-soft" aria-hidden>0{index + 1}</span>
+                <h3 className={cx("mt-2 font-bold tracking-tight", index === 0 ? "text-2xl" : "text-xl")}>{t(f.title)}</h3>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{t(f.body)}</p>
+                <span className="mt-5 inline-flex items-center gap-2 text-xs font-medium text-accent">
+                  {t("Open ")}<ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                </span>
               </div>
-              <h3 className="mt-2 text-xl font-bold tracking-tight">{t(f.title)}</h3>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{t(f.body)}</p>
-              <span className="mt-6 inline-flex items-center gap-2 border-t border-line pt-4 text-xs font-medium">
-                {t("Open ")}<ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-              </span>
             </PaperCard>
           </motion.div>
         ))}
@@ -378,8 +443,8 @@ export function Features() {
 }
 
 /** Paper sheets keep the illustration, copy, and action together. */
-function PaperCard({ href, children }: { href: string; children: ReactNode }) {
-  return <Link href={href} className="group flex h-full flex-col rounded-2xl p-5 transition-colors hover:bg-accent-soft/20">
+function PaperCard({ href, children, featured }: { href: string; children: ReactNode; featured: boolean }) {
+  return <Link href={href} className={cx("group grid h-full rounded-[20px] transition-colors hover:bg-accent-soft/20", featured ? "grid-cols-1" : "grid-cols-1 md:grid-cols-[0.8fr_1fr]")}>
     {children}
   </Link>;
 }
@@ -390,11 +455,10 @@ export function ClosingCta() {
   return (
     <motion.section initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
-      className="paper-panel relative overflow-hidden bg-accent-soft/40 p-7 sm:p-12">
+      className="paper-panel relative overflow-hidden bg-accent-soft/60 p-7 sm:p-12">
       <div className="grid items-center gap-8 md:grid-cols-[1.2fr_1fr]">
         <div>
-          <p className="khmer text-sm font-medium text-accent">សំឡេងរបស់អ្នក ជាភាសារបស់អ្នក</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{t("Your voice, in your language.")}</h2>
+          <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">{t("Your voice, in your language.")}</h2>
           <p className="mt-3 max-w-md text-ink-soft">
             {t("No install, no credit card. Open the studio and say something in Khmer — the text appears as you talk.")}</p>
           <div className="mt-7 flex flex-wrap gap-3">
