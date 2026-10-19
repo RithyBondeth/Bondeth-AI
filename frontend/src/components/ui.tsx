@@ -15,6 +15,7 @@ import {
   useState,
   type InputHTMLAttributes,
   type ReactNode,
+  type Ref,
   type TextareaHTMLAttributes,
 } from "react";
 
@@ -139,7 +140,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
   );
 }
 
-export function Input({ className, onInvalid, onInput, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, onInvalid, onInput, ...props }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   const t = useT();
   return <input className={cx(FIELD, className)} {...props}
     onInvalid={(event) => {

@@ -136,7 +136,7 @@ Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://hugg
 - [Production operations](docs/operations.md): split workers, scaling, migrations, backups and verification.
 - [Stripe subscriptions](docs/billing.md): optional Pro plans, Checkout, portal and webhook setup.
 - [History search and audio library](docs/audio-library.md): private saved outputs, filtering, downloads and storage.
-- [Transcript editing and subtitles](docs/transcript-editing.md): private audio playback, editable timing, split/merge, undo/redo, autosave, conflict handling and SRT/VTT exports.
+- [Transcript editing and subtitles](docs/transcript-editing.md): private audio playback, find-and-replace, editable timing, split/merge, undo/redo, autosave, conflict handling and SRT/VTT exports.
 - [Local voice testing](docs/local-voice-testing.md): real-model smoke test, audio samples and local engine troubleshooting.
 - [frontend/README.md](frontend/README.md): pages and design system.
 - [deploy/gpu/README.md](deploy/gpu/README.md): evaluating VoxCPM2 and live-dictation latency on a rented GPU (one command, report with targets).
