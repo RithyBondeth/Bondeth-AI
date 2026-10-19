@@ -2,11 +2,11 @@
 
 import { useT } from "@/lib/useLocale";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Mail, UserRound, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 
 import { Aurora } from "@/components/Aurora";
 import { Logo } from "@/components/Logo";
@@ -15,13 +15,35 @@ import {
 } from "@/components/doodles";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Button, Field, Input, useToast } from "@/components/ui";
+import { Button, Field, Input, cx, useToast } from "@/components/ui";
 import { ApiError, login, register } from "@/lib/api";
 
 /** Where to go after signing in: a same-site path from ?next=, else the studio. */
 function nextPath(): string {
   const next = new URLSearchParams(window.location.search).get("next");
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/stt";
+}
+
+/** Icons are decorative; persistent labels still name each field for assistive technology. */
+function AuthInput({ Icon, className, type, ...props }: ComponentProps<typeof Input> & { Icon: LucideIcon }) {
+  const t = useT();
+  const [visible, setVisible] = useState(false);
+  const password = type === "password";
+  const VisibilityIcon = visible ? EyeOff : Eye;
+  return (
+    <div className="group/auth-input relative">
+      <Icon aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-ink-soft transition-colors group-focus-within/auth-input:text-accent" />
+      <Input {...props} type={password && visible ? "text" : type}
+        className={cx("h-12 rounded-xl pl-11", password && "pr-12", className)} />
+      {password && (
+        <button type="button" onClick={() => setVisible((value) => !value)}
+          aria-label={t(visible ? "Hide password" : "Show password")} aria-controls={props.id} aria-pressed={visible}
+          className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink">
+          <VisibilityIcon aria-hidden className="size-[18px]" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
@@ -66,21 +88,23 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     >
       <form onSubmit={submit} className="space-y-4">
         {!isLogin && (
-          <Field label={t("Name (optional)")}>
-            {(id) => <Input id={id} name="full_name" autoComplete="name" maxLength={100} placeholder="Sokha" />}
+          <Field label={t("Name (optional)")} hideLabel>
+            {(id) => <AuthInput Icon={UserRound} id={id} name="full_name" autoComplete="name" maxLength={100} placeholder={t("Name (optional)")} />}
           </Field>
         )}
-        <Field label={t("Email")}>
-          {(id) => <Input id={id} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />}
+        <Field label={t("Email")} hideLabel>
+          {(id) => <AuthInput Icon={Mail} id={id} name="email" type="email" required autoComplete="email" placeholder={t("Email address")} />}
         </Field>
-        <Field label={t("Password")} hint={isLogin
-          ? <Link href="/forgot-password" className="font-medium text-accent hover:underline">{t("Forgot your password?")}</Link>
-          : t("At least 8 characters.")}>
+        <Field label={t("Password")} hideLabel>
           {(id) => (
-            <Input id={id} name="password" type="password" required minLength={isLogin ? undefined : 8}
+            <AuthInput Icon={KeyRound} id={id} name="password" type="password" required minLength={isLogin ? undefined : 8}
+              placeholder={t(isLogin ? "Enter your password" : "Create a password (8+ characters)")}
               autoComplete={isLogin ? "current-password" : "new-password"} />
           )}
         </Field>
+        {isLogin && <div className="flex justify-end">
+          <Link href="/forgot-password" className="rounded text-xs font-medium text-accent hover:underline">{t("Forgot your password?")}</Link>
+        </div>}
 
         {error && (
           <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1, x: [0, -6, 6, -3, 0] }}
@@ -145,7 +169,11 @@ export function AuthShell({ km, title, subtitle, bubble = "សួស្តី", 
         <div className="flex items-center justify-between p-4 sm:p-6">
           <Link href="/" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">
             <ArrowLeft className="size-4" /> {t(" Home")}</Link>
-          <LanguageSwitch /><ThemeToggle />
+          <div role="group" aria-label={t("Language and appearance")} className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-line bg-surface p-1">
+            <LanguageSwitch />
+            <span aria-hidden className="mx-0.5 h-4 w-px bg-line" />
+            <ThemeToggle />
+          </div>
         </div>
         <div className="flex flex-1 items-center justify-center px-4 pb-16">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}

@@ -100,8 +100,8 @@ export function Panel({ className, children, ...rest }: HTMLMotionProps<"section
 export function PanelHeader({ title, km, children }: { title: string; km?: string; children?: ReactNode }) {
   const t = useT();
   return (
-    <div className="flex min-h-12 items-center gap-3 border-b border-line px-5 py-2">
-      <h2 className="text-sm font-medium">
+    <div className="flex min-h-12 items-center gap-3 rounded-t-[19px] border-b border-line bg-surface-2/30 px-5 py-2">
+      <h2 className="text-sm font-bold">
         {t(title)} {km && <span className="secondary-khmer khmer font-normal text-ink-soft">· {km}</span>}
       </h2>
       <div className="ml-auto flex items-center gap-1">{children}</div>
@@ -128,12 +128,12 @@ export function Setting({ label, value, children }: { label: string; value?: Rea
 const FIELD =
   "ink-field w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-accent focus:bg-surface focus:outline-none";
 
-export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: (id: string) => ReactNode }) {
+export function Field({ label, hint, hideLabel = false, children }: { label: string; hint?: ReactNode; hideLabel?: boolean; children: (id: string) => ReactNode }) {
   const t = useT();
   const id = useId();
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">{t(label)}</label>
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "block text-sm font-medium text-ink"}>{t(label)}</label>
       {children(id)}
       {hint && <p className="text-xs text-ink-soft">{hint}</p>}
     </div>

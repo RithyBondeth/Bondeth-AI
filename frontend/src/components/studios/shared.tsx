@@ -18,7 +18,7 @@ export function errorText(err: unknown, fallback: string): string {
 
 /** Short description line under the top bar title. */
 export function Intro({ children }: { children: ReactNode }) {
-  return <p className="mb-6 max-w-2xl text-sm text-ink-soft">{children}</p>;
+  return <p className="studio-intro mb-7 max-w-2xl text-sm text-ink-soft">{children}</p>;
 }
 
 /** Renders children only for signed-in users; otherwise a friendly sign-in prompt. */

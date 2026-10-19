@@ -1,5 +1,13 @@
 // English source messages are stable keys; never pass user-authored content to translation.
 export const khmerMessages: Record<string, string> = {
+  "Explore voice tools": "ស្វែងយល់ពីឧបករណ៍សំឡេង",
+  "Email address": "អាសយដ្ឋានអ៊ីមែល",
+  "Enter your password": "បញ្ចូលពាក្យសម្ងាត់របស់អ្នក",
+  "Create a password (8+ characters)": "បង្កើតពាក្យសម្ងាត់ (យ៉ាងតិច ៨ តួ)",
+  "Show password": "បង្ហាញពាក្យសម្ងាត់",
+  "Hide password": "លាក់ពាក្យសម្ងាត់",
+  "Language and appearance": "ភាសា និងរូបរាង",
+  "Free and open source": "ឥតគិតថ្លៃនិងប្រភពបើកចំហ",
   "Page {current} of {total}": "ទំព័រទី {current} នៃ {total}",
   "Quality and preview": "គុណភាព និងការមើលជាមុន",
   "Subtitle quality and preview": "គុណភាពចំណងជើងរង និងការមើលជាមុន",
