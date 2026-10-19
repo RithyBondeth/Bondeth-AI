@@ -9,14 +9,17 @@ import { API_URL } from "@/lib/api";
 import { API_BASE, API_ENDPOINTS, EXAMPLE_TARGETS, endpointExamples, type ApiEndpoint, type ExampleTarget } from "@/lib/api-reference";
 import { useT } from "@/lib/useLocale";
 import { ApiIntegrationGuide, ApiWorkflowGuide } from "@/components/studios/ApiIntegrationGuide";
+import { ApiTryIt } from "@/components/studios/ApiTryIt";
 
 const SECTIONS = [{ id: "quick-start", title: "Quick start" }, { id: "authentication", title: "Authentication" },
+  { id: "try-it", title: "Try it" },
   { id: "frameworks", title: "Framework integrations" }, { id: "endpoints", title: "Endpoints" },
   { id: "audio-and-jobs", title: "Audio and jobs" }, { id: "errors", title: "Errors and limits" }];
 
 export function ApiDocs() {
   const t = useT();
   const [query, setQuery] = useState("");
+  const [tryEndpoint, setTryEndpoint] = useState("speech-preview");
   const search = query.trim().toLowerCase();
   const endpoints = API_ENDPOINTS.filter((item) => `${item.title} ${t(item.title)} ${item.method} ${item.path} ${item.description}`.toLowerCase().includes(search));
 
@@ -60,6 +63,8 @@ export function ApiDocs() {
             <p className="text-xs leading-relaxed text-ink-soft">{t("Transcription and standard speech also accept anonymous requests with IP-based limits. Voice cloning requires a verified account. Creating or revoking API keys requires a signed-in session, not an API key.")}</p>
           </section>
 
+          <ApiTryIt endpointId={tryEndpoint} onEndpointChange={setTryEndpoint} />
+
           <ApiIntegrationGuide />
 
           <section id="endpoints" className="scroll-mt-24 space-y-5" aria-labelledby="endpoints-title">
@@ -71,7 +76,7 @@ export function ApiDocs() {
               </div>
             </div>
             <div className="space-y-6">
-              {endpoints.map((endpoint) => <Endpoint key={endpoint.id} endpoint={endpoint} />)}
+              {endpoints.map((endpoint) => <Endpoint key={endpoint.id} endpoint={endpoint} onTry={() => setTryEndpoint(endpoint.id)} />)}
               {endpoints.length === 0 && <div role="status" className="rounded-2xl border border-dashed border-line p-8 text-center">
                 <p className="text-sm font-medium">{t("No matching endpoints")}</p>
                 <Button variant="ghost" size="sm" className="mt-3" onClick={() => setQuery("")}>{t("Clear search")}</Button>
@@ -106,7 +111,7 @@ export function ApiDocs() {
   );
 }
 
-function Endpoint({ endpoint }: { endpoint: ApiEndpoint }) {
+function Endpoint({ endpoint, onTry }: { endpoint: ApiEndpoint; onTry: () => void }) {
   const t = useT();
   return (
     <article id={endpoint.id} className="paper-panel min-w-0 scroll-mt-24 overflow-hidden bg-surface">
@@ -117,6 +122,7 @@ function Endpoint({ endpoint }: { endpoint: ApiEndpoint }) {
           <span className="ml-auto text-[11px] text-ink-soft">{t(endpoint.authenticated ? "Authentication required" : "Authentication optional")}</span>
         </div>
         <h3 className="text-lg font-bold">{t(endpoint.title)}</h3>
+        <a href="#try-it" onClick={onTry} className="inline-block rounded text-xs font-medium text-accent hover:underline">{t("Try this endpoint")} →</a>
         <p className="text-sm leading-relaxed text-ink-soft">{t(endpoint.description)}</p>
         {endpoint.parameters.length > 0 && <dl className="space-y-4 border-t border-line pt-4">
           {endpoint.parameters.map((parameter) => <div key={parameter.name}>
