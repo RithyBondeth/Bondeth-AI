@@ -17,7 +17,7 @@ import { useResendVerification } from "@/components/studios/AccountSettings";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconButton, cx } from "@/components/ui";
-import { API_URL, logout, refreshUser } from "@/lib/api";
+import { logout, refreshUser } from "@/lib/api";
 import { useHydrated, useUser } from "@/lib/hooks";
 import { LIBRARY, WORKSPACES, findNav, type NavItem } from "@/lib/nav";
 import { toggleSidebar } from "@/lib/theme";
@@ -92,10 +92,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
               </motion.div>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
-              <a href={`${API_URL}/docs`} target="_blank" rel="noreferrer"
-                className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink sm:flex">
-                <BookOpenText className="size-4" /> API
-              </a>
+              <Link href="/api" aria-label={t("API docs")}
+                className="flex items-center gap-1.5 rounded-xl px-2 py-2 text-sm text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink sm:px-3">
+                <BookOpenText aria-hidden className="size-4" /><span className="hidden sm:inline">API</span>
+              </Link>
               <LanguageSwitch /><ThemeToggle />
               {hydrated && user && <SignOutButton />}
             </div>

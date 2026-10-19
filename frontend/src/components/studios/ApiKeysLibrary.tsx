@@ -5,6 +5,7 @@ import { useT } from "@/lib/useLocale";
 import { Check, Copy, KeyRound, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 import { DeveloperDoodle } from "@/components/doodles";
 import { Intro, RequireAuth, errorText } from "@/components/studios/shared";
@@ -226,7 +227,7 @@ function QuickStart() {
         ))}
         <p className="text-xs text-ink-soft">
           <code className="font-mono">Authorization: Bearer &lt;key&gt;</code> {t(" works too. Every endpoint is described in the")}{" "}
-          <a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">{t("API docs")}</a>.
+          <Link href="/api" className="font-medium text-accent hover:underline">{t("API docs")}</Link>.
         </p>
       </div>
     </Panel>

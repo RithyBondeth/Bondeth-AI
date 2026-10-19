@@ -15,7 +15,6 @@ import {
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cx } from "@/components/ui";
-import { API_URL } from "@/lib/api";
 import { useHydrated, useUser } from "@/lib/hooks";
 
 const stagger: Variants = { hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } } };
@@ -67,7 +66,7 @@ const FOOTER_LINKS: { title: string; km: string; links: { label: string; href: s
     { label: "Voice Clone", href: "/clone" },
   ] },
   { title: "Developers", km: "អ្នកអភិវឌ្ឍ", links: [
-    { label: "API docs", href: `${API_URL}/docs`, external: true },
+    { label: "API docs", href: "/api" },
     { label: "API keys", href: "/api-keys" },
     { label: "GitHub", href: GITHUB, external: true },
   ] },
