@@ -74,7 +74,8 @@ test("transcription sends a multipart file and selected language", async ({ page
   expect(body).not.toContain('name="keep_source_audio"');
 });
 
-test("the current session uses its access token and saved voices exclude reference uploads", async ({ page }) => {
+for (const startup of ["normal", "delayed"] as const) {
+test(`the current session uses its access token and saved voices exclude reference uploads${startup === "delayed" ? " after delayed startup" : ""}`, async ({ page }) => {
   const user = { id: "test-user", email: "playground@example.test", full_name: "Playground", email_verified: true, created_at: "2026-10-19T00:00:00Z" };
   await page.addInitScript((user) => localStorage.setItem("bondeth.session", JSON.stringify({ access: "test-session-token", refresh: "test-refresh", user })), user);
   await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: user }));
@@ -85,17 +86,38 @@ test("the current session uses its access token and saved voices exclude referen
     requestBody = route.request().postDataBuffer()!.toString();
     await route.fulfill({ status: 202, json: { job_id: "saved-voice-job", status: "queued" } });
   });
-  await page.goto("/api#try-it");
-  const panel = page.locator("#try-it");
-  await panel.getByLabel("Endpoint", { exact: true }).selectOption("voice-cloning");
-  await panel.getByLabel("Voice source", { exact: true }).selectOption("saved");
-  await panel.getByLabel("Saved voice ID", { exact: true }).fill("11111111-1111-4111-8111-111111111111");
-  await panel.getByRole("button", { name: "Send request", exact: true }).click();
-  await expect(panel.getByRole("status")).toContainText("HTTP 202");
-  expect(requestBody).toContain('name="voice_id"');
-  expect(requestBody).not.toContain('name="reference_audio"');
-  expect(requestBody).not.toContain('name="consent"');
+  let releaseStartup = () => {};
+  if (startup === "delayed") {
+    const scriptsReady = new Promise<void>((resolve) => { releaseStartup = resolve; });
+    await page.route(/\/_next\/static\/.*\.js(?:\?|$)/, async (route) => {
+      await scriptsReady;
+      await route.continue();
+    });
+  }
+  try {
+    await page.goto("/api#try-it", { waitUntil: startup === "delayed" ? "commit" : "load" });
+    const panel = page.locator("#try-it");
+    if (startup === "delayed") {
+      // Prove the server-rendered form exists before allowing client startup.
+      await expect(panel.getByLabel("Endpoint", { exact: true })).toBeVisible();
+      await expect(page.locator("header").getByRole("button", { name: "Sign out", exact: true })).toHaveCount(0);
+      releaseStartup();
+    }
+    // Loading the stored user changes RecentsProvider's key and remounts the form.
+    // Wait for the authenticated client tree, not just the server-rendered select.
+    await expect(page.locator("header").getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+    await panel.getByLabel("Endpoint", { exact: true }).selectOption("voice-cloning");
+    await expect(panel.getByLabel("Endpoint", { exact: true })).toHaveValue("voice-cloning");
+    await panel.getByLabel("Voice source", { exact: true }).selectOption("saved");
+    await panel.getByLabel("Saved voice ID", { exact: true }).fill("11111111-1111-4111-8111-111111111111");
+    await panel.getByRole("button", { name: "Send request", exact: true }).click();
+    await expect(panel.getByRole("status")).toContainText("HTTP 202");
+    expect(requestBody).toContain('name="voice_id"');
+    expect(requestBody).not.toContain('name="reference_audio"');
+    expect(requestBody).not.toContain('name="consent"');
+  } finally { releaseStartup(); }
 });
+}
 
 test("cloning requires consent and follows only fixed same-API job paths for status and audio", async ({ page }) => {
   const paths: string[] = [];
