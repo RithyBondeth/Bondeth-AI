@@ -115,6 +115,7 @@ services:
         NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
         # This site's public address, for share-image (Open Graph) links.
         NEXT_PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+        SEO_INDEXING: ${SEO_INDEXING:-true}
     image: bondeth-ai/frontend:latest
     restart: unless-stopped
     ports:

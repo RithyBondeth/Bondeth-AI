@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { ApiDocs } from "@/components/studios/ApiDocs";
 
-export const metadata: Metadata = { title: "API docs", description: "Integrate Khmer and English speech, transcription, and voice cloning with the Bondeth AI API." };
+export const metadata = publicMetadata("/api");
 
 export default function ApiPage() {
-  return <ApiDocs />;
+  return <><SeoJsonLd path="/api" /><ApiDocs /></>;
 }
