@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
 
 import { CloneStudio } from "@/components/studios/CloneStudio";
 
-export const metadata: Metadata = { title: "Voice Clone" };
+export const metadata = publicMetadata("/clone");
 
 export default function ClonePage() {
-  return <CloneStudio />;
+  return <><SeoJsonLd path="/clone" /><CloneStudio /></>;
 }

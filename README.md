@@ -104,6 +104,10 @@ Requests made with a developer API key (created under **API keys** in the studio
 
 Verification and password-reset emails go through `BONDETH_EMAIL_BACKEND`. The default, `log`, only writes them to the backend log, which is enough for local development (the links are in the log). Before real users sign up, set `smtp` and the `BONDETH_SMTP_*` settings for any SMTP relay (Resend, Amazon SES, Gmail…), and set `PUBLIC_APP_URL` so the links point at your site.
 
+## Search visibility
+
+Public pages include canonical metadata, social cards, structured data, and a sitemap. Private pages are marked `noindex`. Set `PUBLIC_APP_URL` to the real HTTPS origin before building for production, and use `SEO_INDEXING=false` for public staging environments. See [SEO launch checklist](docs/seo.md) for configuration, indexing verification, language scope and tests.
+
 ## Architecture
 
 ```text

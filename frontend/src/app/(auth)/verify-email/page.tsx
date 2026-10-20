@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
+import { privateMetadata } from "@/lib/seo";
 
 import { VerifyEmail } from "@/components/AccountRecovery";
 
-export const metadata: Metadata = { title: "Confirm your email" };
+export const metadata = privateMetadata("Confirm your email");
 
 export default function VerifyEmailPage() {
   return <VerifyEmail />;

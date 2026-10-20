@@ -1,9 +1,7 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { VoiceConsent } from "@/components/VoiceConsent";
 
-export const metadata: Metadata = {
-  title: "Voice consent policy",
-  description: "Who you may clone with Bondeth AI, how consent is recorded, and how voice samples are kept and deleted.",
-};
+export const metadata = publicMetadata("/voice-consent");
 
-export default function VoiceConsentPage() { return <VoiceConsent />; }
+export default function VoiceConsentPage() { return <><SeoJsonLd path="/voice-consent" /><VoiceConsent /></>; }

@@ -3,6 +3,7 @@ import { Kantumruy_Pro, Ubuntu } from "next/font/google";
 import { Suspense } from "react";
 import { LocaleEffects } from "@/components/LocaleEffects";
 import { localeInitScript } from "@/lib/i18n";
+import { SITE_URL, PUBLIC_ROBOTS } from "@/lib/seo";
 
 import { MotionProvider } from "@/components/MotionProvider";
 import { ToastProvider } from "@/components/ui";
@@ -17,7 +18,9 @@ const description = "Open-source Khmer & English speech-to-text, text-to-speech 
 
 export const metadata: Metadata = {
   // Share images (app/opengraph-image.png etc.) need an absolute URL that crawlers can reach.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: SITE_URL,
+  applicationName: "Bondeth AI",
+  robots: PUBLIC_ROBOTS,
   title: { default: "Bondeth AI · បណ្ឌិត AI", template: "%s · Bondeth AI" },
   description,
   openGraph: { type: "website", siteName: "Bondeth AI", title: "Bondeth AI · Speak Khmer. Be heard.", description },
