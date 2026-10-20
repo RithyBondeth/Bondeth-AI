@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useLocale, useT } from "@/lib/useLocale";
 import { findNav } from "@/lib/nav";
+import { PUBLIC_PAGES, type PublicPath } from "@/lib/seo-pages";
 
 const TITLES: Record<string, string> = {
   "/login": "Sign in", "/register": "Create account", "/forgot-password": "Forgot password",
@@ -17,7 +18,9 @@ export function LocaleEffects() {
   useEffect(() => {
     document.documentElement.lang = locale;
     const title = pathname.startsWith("/history/") ? "Edit transcript" : TITLES[pathname] ?? findNav(pathname)?.label;
-    document.title = title ? `${t(title)} · Bondeth AI` : "Bondeth AI · បណ្ឌិត AI";
+    const publicTitle = PUBLIC_PAGES[pathname as PublicPath]?.title;
+    document.title = locale === "en" && publicTitle ? `${publicTitle} · Bondeth AI`
+      : title ? `${t(title)} · Bondeth AI` : "Bondeth AI · បណ្ឌិត AI";
   }, [locale, pathname, t]);
   return null;
 }

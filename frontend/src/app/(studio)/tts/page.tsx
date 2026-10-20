@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
 
 import { TtsStudio } from "@/components/studios/TtsStudio";
 
-export const metadata: Metadata = { title: "Text to Speech" };
+export const metadata = publicMetadata("/tts");
 
 export default function TtsPage() {
-  return <TtsStudio />;
+  return <><SeoJsonLd path="/tts" /><TtsStudio /></>;
 }

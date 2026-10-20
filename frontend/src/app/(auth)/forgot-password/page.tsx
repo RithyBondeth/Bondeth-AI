@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
+import { privateMetadata } from "@/lib/seo";
 
 import { ForgotPassword } from "@/components/AccountRecovery";
 
-export const metadata: Metadata = { title: "Forgot password" };
+export const metadata = privateMetadata("Forgot password");
 
 export default function ForgotPasswordPage() {
   return <ForgotPassword />;

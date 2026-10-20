@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import { privateMetadata } from "@/lib/seo";
 import { Suspense } from "react";
 
 import { SavedTranscript } from "@/components/studios/SavedTranscript";
 
-export const metadata: Metadata = { title: "Edit transcript" };
+export const metadata = privateMetadata("Edit transcript");
 
 async function Content({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
