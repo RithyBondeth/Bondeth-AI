@@ -97,7 +97,9 @@ test("history shows a retryable error and ignores a canceled search", async ({ p
   await expect(page.getByText("slow", { exact: true })).toHaveCount(0);
 });
 
-test("generated audio survives reload, supports private playback/download and deletion", async ({ page }, info) => {
+for (const startup of ["normal", "delayed"] as const) {
+test(`generated audio survives reload, supports private playback/download and deletion${startup === "delayed" ? " after delayed startup" : ""}`, async ({ page }, info) => {
+  const narration = "A saved narration for tomorrow";
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   let saved: Array<{ id: string; kind: "tts" | "clone"; text: string; voice: string; language: string;
@@ -106,6 +108,9 @@ test("generated audio survives reload, supports private playback/download and de
   await setup(page, async (route, url) => {
     const path = url.pathname;
     if (path === "/api/v1/tts") {
+      // The saved indicator alone can also appear for an accidentally generated default sample.
+      expect(route.request().headers()["authorization"]).toBe("Bearer test-access");
+      expect(route.request().postDataJSON().text).toBe(narration);
       saved.unshift({ id: "speech-1", kind: "tts", text: route.request().postDataJSON().text, voice: "MMS", language: "en",
         speed: 1, duration: 1, engine: "mms", notice: null, created_at: user.created_at });
       await route.fulfill({ contentType: "audio/wav", body: wav(), headers: {
@@ -126,40 +131,60 @@ test("generated audio survives reload, supports private playback/download and de
     } else return false;
     return true;
   });
-  await page.goto("/tts");
-  await page.getByLabel("Text to speak").fill("A saved narration for tomorrow");
-  await page.getByRole("button", { name: "Generate speech" }).click();
-  await expect(page.getByText("Saved to your account.", { exact: false })).toBeVisible();
-  await page.goto("/audio");
-  await page.reload();
-  await expect(page.getByText("A saved narration for tomorrow", { exact: true })).toBeVisible();
-  expect(fileRequests).toBe(0); // listing metadata does not download every WAV
-  await page.getByRole("button", { name: "Listen", exact: true }).click();
-  await expect.poll(() => page.locator("audio").evaluate((audio: HTMLAudioElement) => audio.duration)).toBeGreaterThan(0);
-  const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Download audio" }).click();
-  expect((await download).suggestedFilename()).toBe("bondeth-tts-speech-1.wav");
-  expect(fileRequests).toBe(1);
-  for (const width of [320, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    await expect.poll(() => page.locator("body").evaluate((el) => el.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("link", { name: "Download audio" })).toBeVisible();
-    if ([320, 1440].includes(width)) await page.screenshot({ path: info.outputPath(`audio-library-${width}.png`), fullPage: true });
+  let releaseStartup = () => {};
+  if (startup === "delayed") {
+    const scriptsReady = new Promise<void>((resolve) => { releaseStartup = resolve; });
+    await page.route(/\/_next\/static\/.*\.js(?:\?|$)/, async (route) => {
+      await scriptsReady;
+      await route.continue();
+    });
   }
-  await page.getByRole("radio", { name: "Clones", exact: true }).click();
-  await expect(page.getByText("Nothing matches your search.")).toBeVisible();
-  await page.getByRole("radio", { name: "All", exact: true }).click();
-  await page.getByRole("searchbox", { name: "Search audio" }).fill("tomorrow");
-  await expect(page.getByText("1 matches", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Delete saved audio" }).click();
-  await page.getByRole("button", { name: "Delete audio", exact: true }).click();
-  await expect(page.getByText("Nothing matches your search.")).toBeVisible();
-  await page.getByRole("searchbox").fill("");
-  await expect(page.getByText("No saved audio yet", { exact: true })).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("No saved audio yet", { exact: true })).toBeVisible();
-  expect(errors).toEqual([]);
+  try {
+    await page.goto("/tts", { waitUntil: startup === "delayed" ? "commit" : "load" });
+    if (startup === "delayed") {
+      await expect(page.getByLabel("Text to speak")).toBeVisible();
+      await expect(page.locator("header").getByRole("button", { name: "Sign out", exact: true })).toHaveCount(0);
+      releaseStartup();
+    }
+    // Session initialization remounts the studio; don't type into its server-rendered preview.
+    await expect(page.locator("header").getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+    await page.getByLabel("Text to speak").fill(narration);
+    await expect(page.getByLabel("Text to speak")).toHaveValue(narration);
+    await page.getByRole("button", { name: "Generate speech" }).click();
+    await expect(page.getByText("Saved to your account.", { exact: false })).toBeVisible();
+    await page.goto("/audio");
+    await expect(page.getByText(narration, { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(narration, { exact: true })).toBeVisible();
+    expect(fileRequests).toBe(0); // listing metadata does not download every WAV
+    await page.getByRole("button", { name: "Listen", exact: true }).click();
+    await expect.poll(() => page.locator("audio").evaluate((audio: HTMLAudioElement) => audio.duration)).toBeGreaterThan(0);
+    const download = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Download audio" }).click();
+    expect((await download).suggestedFilename()).toBe("bondeth-tts-speech-1.wav");
+    expect(fileRequests).toBe(1);
+    for (const width of [320, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.locator("body").evaluate((el) => el.scrollWidth <= innerWidth)).toBe(true);
+      await expect(page.getByRole("link", { name: "Download audio" })).toBeVisible();
+      if ([320, 1440].includes(width)) await page.screenshot({ path: info.outputPath(`audio-library-${width}.png`), fullPage: true });
+    }
+    await page.getByRole("radio", { name: "Clones", exact: true }).click();
+    await expect(page.getByText("Nothing matches your search.")).toBeVisible();
+    await page.getByRole("radio", { name: "All", exact: true }).click();
+    await page.getByRole("searchbox", { name: "Search audio" }).fill("tomorrow");
+    await expect(page.getByText("1 matches", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Delete saved audio" }).click();
+    await page.getByRole("button", { name: "Delete audio", exact: true }).click();
+    await expect(page.getByText("Nothing matches your search.")).toBeVisible();
+    await page.getByRole("searchbox").fill("");
+    await expect(page.getByText("No saved audio yet", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("No saved audio yet", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  } finally { releaseStartup(); }
 });
+}
 
 test("audio library asks signed-out visitors to sign in", async ({ page }) => {
   await page.route("**/api/v1/usage", (route) => route.fulfill({ json: { signed_in: false, quotas: {} }, headers }));
