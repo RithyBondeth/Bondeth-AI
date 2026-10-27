@@ -55,6 +55,8 @@ cp .env.example .env
 docker compose --profile app up -d --build
 ```
 
+The example `.env` runs as `BONDETH_ENV=development`, which is right for a trial on localhost. For a public deployment set `BONDETH_ENV=production`: the backend then refuses to start until `PUBLIC_APP_URL` (and the CORS origin derived from it) is the real `https://` address and `BONDETH_EMAIL_BACKEND=smtp` points at a real relay, so sign-up and password reset can't silently break.
+
 Open **http://localhost:3000** (API docs at http://localhost:8000/docs). The first start downloads about 6 GB of models into `backend/models/` and loads them, which takes a while; later starts reuse them.
 
 On a Linux server with an NVIDIA GPU (and the NVIDIA Container Toolkit), add the GPU override:

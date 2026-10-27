@@ -111,7 +111,7 @@ for (const width of [320, 390, 768, 1024]) {
 test(`account forms fit a small phone in ${theme} mode`, async ({ page }) => {
   await page.addInitScript((value) => localStorage.setItem("bondeth.theme", value), theme);
   await page.setViewportSize({ width: 320, height: 568 });
-  for (const path of ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/voice-consent"]) {
+  for (const path of ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/voice-consent", "/privacy", "/terms"]) {
     await page.goto(path);
     await expect(page.locator("h1")).toBeVisible();
     await fits(page.locator("body"), path);

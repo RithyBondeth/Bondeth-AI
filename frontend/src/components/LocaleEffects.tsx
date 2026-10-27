@@ -9,6 +9,7 @@ import { PUBLIC_PAGES, type PublicPath } from "@/lib/seo-pages";
 const TITLES: Record<string, string> = {
   "/login": "Sign in", "/register": "Create account", "/forgot-password": "Forgot password",
   "/reset-password": "Reset password", "/verify-email": "Confirm your email", "/voice-consent": "Voice consent policy",
+  "/privacy": "Privacy policy", "/terms": "Terms of use",
 };
 
 export function LocaleEffects() {

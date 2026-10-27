@@ -116,6 +116,8 @@ services:
         # This site's public address, for share-image (Open Graph) links.
         NEXT_PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
         SEO_INDEXING: ${SEO_INDEXING:-true}
+        # Shown on the privacy and terms pages for requests (GitHub issues when empty).
+        NEXT_PUBLIC_CONTACT_EMAIL: ${CONTACT_EMAIL:-}
     image: bondeth-ai/frontend:latest
     restart: unless-stopped
     ports:

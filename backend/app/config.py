@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -160,19 +161,58 @@ class Settings(BaseSettings):
     rate_limit_pro: int = 60
 
     @model_validator(mode="after")
-    def _require_real_secret_outside_dev(self):
-        if self.env not in ("development", "test") and (
+    def _require_production_config(self):
+        if not self.jwt_secret or (self.env not in ("development", "test") and (
             self.jwt_secret == DEV_JWT_SECRET or len(self.jwt_secret) < 32
-        ):
+        )):
             raise ValueError(
                 "Set BONDETH_JWT_SECRET to a random value of at least 32 characters outside development "
                 "(python3 -c \"import secrets; print(secrets.token_urlsafe(48))\").")
+        if self.env not in ("development", "test"):
+            # Each of these starts fine but quietly breaks sign-up, email links or the browser app.
+            problems = [f"BONDETH_PUBLIC_APP_URL {p}" for p in _public_url_problems(self.public_app_url)]
+            if not self.cors_origins:
+                problems.append("BONDETH_CORS_ORIGINS must list the app's public origin")
+            for origin in self.cors_origins:
+                problems += [f"BONDETH_CORS_ORIGINS entry {origin!r} {p}" for p in _public_url_problems(origin)]
+            if self.email_backend != "smtp":
+                problems.append("BONDETH_EMAIL_BACKEND must be smtp, or nobody can verify their email "
+                                "or reset their password")
+            elif _is_local_host(self.smtp_host) or self.smtp_host.endswith("example.com"):
+                problems.append("BONDETH_SMTP_HOST must be a real SMTP relay")
+            if _email_domain(self.email_from) in ("localhost", "example.com"):
+                problems.append("BONDETH_EMAIL_FROM must use a domain you send mail from")
+            if problems:
+                raise ValueError(
+                    f"BONDETH_ENV={self.env} needs a public configuration (use BONDETH_ENV=development "
+                    "for a local trial): " + "; ".join(problems) + ".")
         if self.billing_enabled:
             if not all((self.stripe_secret_key, self.stripe_webhook_secret, self.stripe_pro_price_id)):
                 raise ValueError("Billing needs Stripe secret key, webhook secret and Pro price ID.")
             if self.tts_engine != "voxcpm" or self.clone_engine != "voxcpm":
                 raise ValueError("Paid service requires BONDETH_TTS_ENGINE=voxcpm and BONDETH_CLONE_ENGINE=voxcpm.")
         return self
+
+
+def _is_local_host(host: str) -> bool:
+    host = host.strip("[]").lower()
+    return host in ("localhost", "0.0.0.0", "::1") or host.startswith("127.") or host.endswith(".localhost")
+
+
+def _public_url_problems(url: str) -> list[str]:
+    parsed = urlsplit(url)
+    if url.strip() == "*":
+        return ["must not be a wildcard"]
+    problems = []
+    if parsed.scheme != "https":
+        problems.append("must use https")
+    if not parsed.hostname or _is_local_host(parsed.hostname):
+        problems.append("must be the public address, not localhost")
+    return problems
+
+
+def _email_domain(address: str) -> str:
+    return address.rsplit("@", 1)[-1].strip(" >").lower() if "@" in address else ""
 
 
 @lru_cache

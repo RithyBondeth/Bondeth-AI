@@ -24,6 +24,14 @@ export const PUBLIC_PAGES = {
     title: "Voice consent policy",
     description: "Learn whose voice you may clone with Bondeth AI, how consent is recorded, and how reference voice samples are stored and deleted.",
   },
+  "/privacy": {
+    title: "Privacy policy",
+    description: "What Bondeth AI stores about you, including recordings, transcripts and saved voices, why it is kept, for how long, and how to delete it.",
+  },
+  "/terms": {
+    title: "Terms of use",
+    description: "The rules for using the Bondeth AI studio and API, including voice consent, acceptable use, model licenses and account suspension.",
+  },
 } as const;
 
 export type PublicPath = keyof typeof PUBLIC_PAGES;

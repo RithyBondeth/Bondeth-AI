@@ -1,14 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-const publicPaths = ["/", "/stt", "/tts", "/clone", "/api", "/voice-consent"];
+const publicPaths = ["/", "/stt", "/tts", "/clone", "/api", "/voice-consent", "/privacy", "/terms"];
 const privatePaths = ["/login", "/register", "/forgot-password", "/reset-password?token=private-test-token", "/verify-email?token=private-test-token", "/account", "/audio", "/voices", "/api-keys", "/history", "/history/private-transcript"];
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/**", (route) => route.fulfill({ json: { signed_in: false, quotas: {} } }));
+  // /tts previews its prefilled text after a debounce; a reply without chunks would crash the page.
+  await page.route("**/api/v1/tts/preview", (route) => route.fulfill({ json: { engine: "mms", chunks: [] } }));
 });
 
 test("public pages serve unique metadata, canonical URLs, social cards and structured data without JavaScript", async ({ request, page }) => {
-  test.setTimeout(90_000); // Six full navigations plus asset checks, including on busy CI workers.
+  test.setTimeout(120_000); // Eight full navigations plus asset checks, including on busy CI workers.
   const titles = new Set<string>();
   const descriptions = new Set<string>();
   for (const path of publicPaths) {
