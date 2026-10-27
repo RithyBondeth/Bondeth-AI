@@ -149,6 +149,10 @@ class Settings(BaseSettings):
     quota_clone_jobs_user: int = 20  # cloning always needs an account
     max_api_keys_per_user: int = 10
 
+    # Error tracking (Sentry), off when empty. See app/monitoring.py for what is never sent.
+    sentry_dsn: str = ""
+    sentry_environment: str = ""  # defaults to env
+
     # Paid plans are opt-in. Prices and payment methods are managed in Stripe.
     billing_enabled: bool = False
     stripe_secret_key: str = ""
@@ -182,6 +186,8 @@ class Settings(BaseSettings):
                 problems.append("BONDETH_SMTP_HOST must be a real SMTP relay")
             if _email_domain(self.email_from) in ("localhost", "example.com"):
                 problems.append("BONDETH_EMAIL_FROM must use a domain you send mail from")
+            if urlsplit(self.database_url).password in (None, "", "bondeth", "postgres", "password"):
+                problems.append("the database password (POSTGRES_PASSWORD) must not be a default")
             if problems:
                 raise ValueError(
                     f"BONDETH_ENV={self.env} needs a public configuration (use BONDETH_ENV=development "

@@ -12,6 +12,7 @@ from redis import Redis
 
 from app.config import get_settings
 from app.deps import get_clone_service, get_stt_service
+from app.monitoring import init_error_tracking
 from app.services.clone_jobs import CloneJobQueue
 from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
@@ -30,6 +31,7 @@ def main():
         finally:
             redis.close()
     logging.basicConfig(level=logging.INFO)
+    init_error_tracking(settings, "worker")
     settings.tmp_dir.mkdir(parents=True, exist_ok=True)
     billing = JobBilling(redis, settings.database_url)
     queues = [

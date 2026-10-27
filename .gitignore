@@ -14,3 +14,4 @@ backend/.venv-gpu/
 frontend/playwright-report/
 frontend/test-results/
 frontend/tsconfig.tsbuildinfo
+/backups/

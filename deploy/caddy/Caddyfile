@@ -1,0 +1,28 @@
+# One public origin for the whole app, with HTTPS from Let's Encrypt.
+# The API keeps its /api/v1 prefix, so the browser talks to the same origin it loaded
+# the studio from (PUBLIC_API_URL = PUBLIC_APP_URL): no CORS and a same-origin CSP.
+#
+# Caddy replaces any X-Forwarded-For sent by clients with the real client address,
+# which is what the backend's per-IP rate limits and allowances rely on.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Only the API and its docs go to FastAPI; /api and /api-keys are studio pages.
+	@backend path /api/v1/* /openapi.json /docs /docs/* /redoc
+	handle @backend {
+		# Generous limit for long STT job uploads (BONDETH_STT_JOB_MAX_UPLOAD_MB is 200 by default).
+		request_body {
+			max_size 256MB
+		}
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

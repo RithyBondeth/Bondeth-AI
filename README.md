@@ -55,7 +55,7 @@ cp .env.example .env
 docker compose --profile app up -d --build
 ```
 
-The example `.env` runs as `BONDETH_ENV=development`, which is right for a trial on localhost. For a public deployment set `BONDETH_ENV=production`: the backend then refuses to start until `PUBLIC_APP_URL` (and the CORS origin derived from it) is the real `https://` address and `BONDETH_EMAIL_BACKEND=smtp` points at a real relay, so sign-up and password reset can't silently break.
+The example `.env` runs as `BONDETH_ENV=development`, which is right for a trial on localhost. For a public deployment follow [docs/deploy.md](docs/deploy.md), which starts from `.env.production.example` and puts Caddy (automatic HTTPS) in front. With `BONDETH_ENV=production` the backend refuses to start until `PUBLIC_APP_URL` (and the CORS origin derived from it) is the real `https://` address and `BONDETH_EMAIL_BACKEND=smtp` points at a real relay, so sign-up and password reset can't silently break.
 
 Open **http://localhost:3000** (API docs at http://localhost:8000/docs). The first start downloads about 6 GB of models into `backend/models/` and loads them, which takes a while; later starts reuse them.
 
@@ -144,6 +144,7 @@ Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://hugg
 
 - [Master Project Blueprint (PDF)](docs/Bondeth_AI_Master_Blueprint.pdf): the original proposal, requirements, architecture, business model and infrastructure costs.
 - [Current architecture](docs/architecture.md): runtime, persistence, model boundaries and differences from the proposal.
+- [Deploying to production](docs/deploy.md): server, DNS, email, HTTPS, backups, monitoring and updates, step by step.
 - [Production operations](docs/operations.md): split workers, scaling, migrations, backups and verification.
 - [Stripe subscriptions](docs/billing.md): optional Pro plans, Checkout, portal and webhook setup.
 - [History search and audio library](docs/audio-library.md): private saved outputs, filtering, downloads and storage.
