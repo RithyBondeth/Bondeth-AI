@@ -72,6 +72,8 @@ const FOOTER_LINKS: { title: string; km: string; links: { label: string; href: s
   ] },
   { title: "Trust", km: "ទំនុកចិត្ត", links: [
     { label: "Voice consent policy", href: "/voice-consent" },
+    { label: "Privacy policy", href: "/privacy" },
+    { label: "Terms of use", href: "/terms" },
     { label: "MIT License", href: `${GITHUB}/blob/main/LICENSE`, external: true },
   ] },
 ];
