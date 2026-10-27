@@ -82,7 +82,7 @@ export function PrivacyPolicy() {
       title: "Who else handles your data",
       km: "អ្នកផ្សេងទៀតដែលដំណើរការទិន្នន័យរបស់អ្នក",
       body: (
-        <p>{t("Only the services needed to run the site: our email provider, to send verification and password-reset messages, and Stripe, if you subscribe. We don't sell your data or share it for advertising.")}</p>
+        <p>{t("Only the services needed to run the site: our email provider, to send verification and password-reset messages, Stripe, if you subscribe, and an error-monitoring service that receives technical details when something breaks, never your recordings, text or voices. We don't sell your data or share it for advertising.")}</p>
       ),
     },
     {

@@ -168,6 +168,7 @@ def test_empty_jwt_secret_rejected_everywhere():
 PUBLIC = dict(
     public_app_url="https://bondeth.example.org", cors_origins=["https://bondeth.example.org"],
     email_backend="smtp", smtp_host="smtp.resend.com", email_from="Bondeth AI <no-reply@bondeth.org>",
+    database_url="postgresql+asyncpg://bondeth:k3Xq9-long-random@postgres:5432/bondeth",
 )
 
 
@@ -181,6 +182,8 @@ PUBLIC = dict(
     ({"smtp_host": "localhost"}, "BONDETH_SMTP_HOST must be a real SMTP relay"),
     ({"smtp_host": "smtp.example.com"}, "BONDETH_SMTP_HOST must be a real SMTP relay"),
     ({"email_from": "Bondeth AI <no-reply@localhost>"}, "BONDETH_EMAIL_FROM must use a domain"),
+    ({"database_url": "postgresql+asyncpg://bondeth:bondeth@postgres:5432/bondeth"}, "POSTGRES_PASSWORD"),
+    ({"database_url": "postgresql+asyncpg://bondeth@postgres:5432/bondeth"}, "POSTGRES_PASSWORD"),
 ])
 def test_production_rejects_local_or_dev_settings(override, problem):
     with pytest.raises(ValidationError, match=problem):

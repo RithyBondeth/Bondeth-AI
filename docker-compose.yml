@@ -32,6 +32,10 @@ x-backend-env: &backend-env
   BONDETH_QUOTA_STT_SECONDS_PRO: ${BONDETH_QUOTA_STT_SECONDS_PRO:-18000}
   BONDETH_QUOTA_TTS_CHARS_PRO: ${BONDETH_QUOTA_TTS_CHARS_PRO:-250000}
   BONDETH_QUOTA_CLONE_JOBS_PRO: ${BONDETH_QUOTA_CLONE_JOBS_PRO:-100}
+  # Live dictation previews re-run Whisper continuously; CPU-only servers should set false.
+  BONDETH_STT_LIVE_PARTIALS: ${BONDETH_STT_LIVE_PARTIALS:-true}
+  # Optional error tracking; nothing is sent while empty (see backend/app/monitoring.py).
+  BONDETH_SENTRY_DSN: ${BONDETH_SENTRY_DSN:-}
 
 services:
   postgres:
@@ -94,7 +98,7 @@ services:
       BONDETH_CLONE_WORKER_ENABLED: ${BONDETH_CLONE_WORKER_ENABLED:-true}
       BONDETH_STT_WORKER_ENABLED: ${BONDETH_STT_WORKER_ENABLED:-true}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"  # localhost only; docker-compose.prod.yml puts Caddy in front
     volumes:
       # Downloaded models (~6 GB). Defaults to backend/models so local downloads are reused.
       - ${MODELS_PATH:-./backend/models}:/app/models
@@ -121,7 +125,7 @@ services:
     image: bondeth-ai/frontend:latest
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend: { condition: service_started }
 

@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.db import create_engine, create_sessionmaker
 from app.deps import get_clone_service, get_stt_service, get_tts_service
 from app.limits import LimitExceeded, limit_exceeded_handler
+from app.monitoring import init_error_tracking
 from app.services.clone_jobs import CloneJobQueue
 from app.services.job_billing import JobBilling
 from app.services.stt_jobs import SttJobQueue
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     settings.tmp_dir.mkdir(parents=True, exist_ok=True)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    init_error_tracking(settings, "api")
 
     app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
     app.add_middleware(

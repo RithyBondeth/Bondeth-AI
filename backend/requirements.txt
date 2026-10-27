@@ -1,7 +1,7 @@
 fastapi==0.143.0
 uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
-python-multipart==0.0.20
+python-multipart==0.0.31
 faster-whisper==1.2.1
 # Khmer decoding accounts for this runtime's max_length // 2 behavior; re-evaluate on upgrades.
 ctranslate2==4.8.3
@@ -11,7 +11,7 @@ transformers==5.19.0
 scipy==1.17.1
 num2words==0.5.14
 omnivoice==0.2.1
-filelock==4.1.1
+filelock==4.2.1
 soundfile==0.14.0
 sqlalchemy[asyncio]==2.1.4
 asyncpg==0.32.0
@@ -21,3 +21,9 @@ pyjwt==2.15.1
 pwdlib[argon2]==0.3.1
 email-validator==2.3.0
 httpx==0.28.1
+sentry-sdk[fastapi]==2.73.0
+# Security floors for transitive dependencies (pip-audit in CI). Pillow stays below 13:
+# gradio caps it, and it is only used by omnivoice's demo CLI; see scripts/audit_deps.py.
+brotli>=1.2.1
+certifi>=2026.10.19
+setuptools>=84.1.0

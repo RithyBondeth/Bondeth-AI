@@ -63,6 +63,10 @@ jobs:
       - name: Run tests
         run: .venv/bin/python -m pytest -q -p no:cacheprovider
 
+      # Known-vulnerable packages fail the build; documented exceptions live in the script.
+      - name: Audit dependencies
+        run: .venv/bin/python -m scripts.audit_deps
+
   frontend:
     name: Frontend lint, types and build
     runs-on: ubuntu-latest
@@ -81,6 +85,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run build
       # After the build: route types such as LayoutProps are generated into .next/ by it.
@@ -101,3 +107,5 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.gpu.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.workers.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.workers.yml -f docker-compose.workers.gpu.yml config --quiet
+          APP_DOMAIN=bondeth.example.org ACME_EMAIL=ops@example.org docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.workers.yml -f docker-compose.workers.gpu.yml -f docker-compose.prod.yml config --quiet
+          APP_DOMAIN=bondeth.example.org ACME_EMAIL=ops@example.org docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet

@@ -1,5 +1,7 @@
 # Production operations
 
+First deployment, HTTPS, backups and monitoring: see [deploy.md](deploy.md).
+
 ## Deployment choices
 
 The original single-process Compose deployment remains supported. To run queues in
