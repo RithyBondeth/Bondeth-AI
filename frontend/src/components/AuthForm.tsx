@@ -116,6 +116,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <Button type="submit" loading={busy} className="w-full" size="lg">
           {isLogin ? t("Sign in") : t("Create account")}
         </Button>
+        {!isLogin && (
+          <p className="text-center text-xs text-ink-faint">
+            {t("By creating an account, you agree to the ")}
+            <Link href="/terms" className="font-medium text-accent hover:underline">{t("Terms of use")}</Link>
+            {t(" and ")}
+            <Link href="/privacy" className="font-medium text-accent hover:underline">{t("Privacy policy")}</Link>.
+          </p>
+        )}
       </form>
 
       <p className="mt-6 text-center text-sm text-ink-soft">

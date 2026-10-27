@@ -157,4 +157,37 @@ def test_production_requires_real_jwt_secret():
     for weak in ("", "short-secret"):
         with pytest.raises(ValidationError, match="BONDETH_JWT_SECRET"):
             Settings(env="production", jwt_secret=weak)
-    assert Settings(env="production", jwt_secret="x" * 48).env == "production"
+    assert Settings(env="production", jwt_secret="x" * 48, **PUBLIC).env == "production"
+
+
+def test_empty_jwt_secret_rejected_everywhere():
+    with pytest.raises(ValidationError, match="BONDETH_JWT_SECRET"):
+        Settings(env="development", jwt_secret="")
+
+
+PUBLIC = dict(
+    public_app_url="https://bondeth.example.org", cors_origins=["https://bondeth.example.org"],
+    email_backend="smtp", smtp_host="smtp.resend.com", email_from="Bondeth AI <no-reply@bondeth.org>",
+)
+
+
+@pytest.mark.parametrize("override, problem", [
+    ({"public_app_url": "http://localhost:3000"}, "BONDETH_PUBLIC_APP_URL must use https"),
+    ({"public_app_url": "https://127.0.0.1"}, "BONDETH_PUBLIC_APP_URL must be the public address"),
+    ({"cors_origins": ["http://localhost:3000"]}, "BONDETH_CORS_ORIGINS entry 'http://localhost:3000'"),
+    ({"cors_origins": ["*"]}, "must not be a wildcard"),
+    ({"cors_origins": []}, "BONDETH_CORS_ORIGINS must list"),
+    ({"email_backend": "log"}, "BONDETH_EMAIL_BACKEND must be smtp"),
+    ({"smtp_host": "localhost"}, "BONDETH_SMTP_HOST must be a real SMTP relay"),
+    ({"smtp_host": "smtp.example.com"}, "BONDETH_SMTP_HOST must be a real SMTP relay"),
+    ({"email_from": "Bondeth AI <no-reply@localhost>"}, "BONDETH_EMAIL_FROM must use a domain"),
+])
+def test_production_rejects_local_or_dev_settings(override, problem):
+    with pytest.raises(ValidationError, match=problem):
+        Settings(env="production", jwt_secret="x" * 48, **{**PUBLIC, **override})
+
+
+def test_development_allows_localhost_and_log_email():
+    s = Settings(env="development", jwt_secret="x" * 48, public_app_url="http://localhost:3000",
+                 cors_origins=["http://localhost:3000"], email_backend="log")
+    assert s.email_backend == "log"
