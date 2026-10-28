@@ -9,8 +9,9 @@ set -euo pipefail
 
 dir="${1:?Usage: deploy/restore.sh <backup directory>}"
 compose=(docker compose ${COMPOSE_FILES:-} --profile app)
-set -a; [ -f .env ] && . ./.env; set +a
-user="${POSTGRES_USER:-bondeth}" db="${POSTGRES_DB:-bondeth}"
+. "$(dirname "$0")/lib.sh"
+user="$(env_get POSTGRES_USER)" db="$(env_get POSTGRES_DB)"
+user="${user:-bondeth}" db="${db:-bondeth}"
 
 for f in postgres.dump backend-data.tar.gz redis-data.tar.gz SHA256SUMS; do
   [ -f "$dir/$f" ] || { echo "Missing $dir/$f" >&2; exit 1; }

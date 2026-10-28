@@ -4,6 +4,22 @@ One Docker host runs everything: Caddy (HTTPS), the Next.js studio, the FastAPI 
 PostgreSQL and Redis. Caddy is the only service reachable from the internet. For splitting
 workers or adding API replicas, see [operations](operations.md).
 
+## Quick path
+
+On a fresh Ubuntu 24.04 server, as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RithyBondeth/Bondeth-AI/main/deploy/setup-server.sh | bash
+nano /srv/bondeth-ai/.env      # domain, Let's Encrypt email, SMTP, contact email
+/srv/bondeth-ai/deploy/start.sh
+```
+
+`setup-server.sh` installs Docker, a firewall (SSH, 80, 443 only), swap and automatic
+security updates, clones the app, writes `.env` with generated secrets and schedules the
+daily backup. `start.sh` refuses to start while `.env` still has example or empty values,
+picks the GPU override when `nvidia-smi` works, and waits until the site answers over HTTPS.
+The sections below explain each step and what to do by hand.
+
 ## 1. Server
 
 | | CPU-only | GPU (recommended) |
@@ -35,7 +51,7 @@ cp .env.production.example .env
 chmod 600 .env
 ```
 
-Fill in every `REQUIRED` value. Generate secrets with
+Fill in every `REQUIRED` value (`setup-server.sh` already generated the JWT secret and database password). Generate secrets with
 `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`. Set `POSTGRES_PASSWORD`
 before the first start: PostgreSQL only reads it when its volume is created.
 
@@ -77,7 +93,7 @@ COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml" deploy/backup.s
 
 Writes `backups/<timestamp>/` with a PostgreSQL dump, the data volume (voices, audio
 library, recordings) and Redis, plus checksums, and keeps the newest 14. Schedule it
-daily with `crontab -e`:
+daily with `crontab -e` (`setup-server.sh` installs this for you, using the files `start.sh` last used):
 
 ```cron
 15 3 * * * cd /srv/bondeth-ai && COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml" deploy/backup.sh >> backups/backup.log 2>&1
