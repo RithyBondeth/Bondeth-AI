@@ -13,8 +13,9 @@ set -euo pipefail
 root="${1:-./backups}"
 keep="${BACKUP_KEEP:-14}"
 compose=(docker compose ${COMPOSE_FILES:-} --profile app)
-set -a; [ -f .env ] && . ./.env; set +a
-user="${POSTGRES_USER:-bondeth}" db="${POSTGRES_DB:-bondeth}"
+. "$(dirname "$0")/lib.sh"
+user="$(env_get POSTGRES_USER)" db="$(env_get POSTGRES_DB)"
+user="${user:-bondeth}" db="${db:-bondeth}"
 
 dir="$root/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$dir"
