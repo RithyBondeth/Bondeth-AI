@@ -6,7 +6,7 @@ import pytest
 from app.config import get_settings
 from app.deps import get_stt_service, get_tts_service
 from app.main import app
-from tests.conftest import count_rows
+from tests.conftest import count_rows, sync_redis
 from tests.fakes import FakeStt, wav_bytes
 from tests.test_limits import FakeTts
 
@@ -38,7 +38,12 @@ def test_signups_are_limited_per_ip(client, monkeypatch):
     assert signup(client, "b@example.com").status_code == 201
     res = signup(client, "c@example.com")
     assert res.status_code == 429
-    assert "Too many new accounts" in res.json()["detail"] and int(res.headers["retry-after"]) > 60
+    assert "Too many new accounts" in res.json()["detail"]
+    # Windows are clock-aligned, so Retry-After can be a few seconds near the top of the hour;
+    # the counter's TTL shows the hourly window (not the 60 s default) is the one in use.
+    assert 1 <= int(res.headers["retry-after"]) <= 3600
+    (key,) = sync_redis().keys("rate:register:*")
+    assert sync_redis().ttl(key) > 60
 
 
 # --- Email verification --------------------------------------------------------------
