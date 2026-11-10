@@ -21,6 +21,24 @@
 
 </div>
 
+<!-- product-images:start -->
+
+## Product preview
+
+<p align="center">
+  <img src="docs/product-images/hero.png" alt="Bondeth AI — A self-hosted voice workspace for Khmer and English." width="100%">
+</p>
+
+<table>
+<tr>
+  <td width="33%"><img src="docs/product-images/feature-01.png" alt="Voice, with a Khmer focus. — Transcription, speech synthesis, and voice-cloning workflows in one workspace." width="100%"></td>
+  <td width="33%"><img src="docs/product-images/feature-02.png" alt="From speech to clear text. — Transcribe recordings or uploads with language detection and timestamps." width="100%"></td>
+  <td width="33%"><img src="docs/product-images/feature-03.png" alt="Make words audible. — Use open-source speech engines for synthesis and zero-shot voice cloning." width="100%"></td>
+</tr>
+</table>
+
+<!-- product-images:end -->
+
 ---
 
 ## Overview
@@ -30,20 +48,20 @@ For the implemented system, see [Current architecture](docs/architecture.md),
 The original PDF is a historical proposal; its engines, sample code, cost estimates,
 and latency targets are not the current implementation or measured guarantees.
 
-**Bondeth AI** takes its name from the Khmer word *បណ្ឌិត* (*Bondeth*), meaning scholar or master of knowledge. It is a self-hosted voice platform that removes typing and accessibility barriers for Khmer speakers.
+**Bondeth AI** takes its name from the Khmer word _បណ្ឌិត_ (_Bondeth_), meaning scholar or master of knowledge. It is a self-hosted voice platform that removes typing and accessibility barriers for Khmer speakers.
 
-Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (*ជើងអក្សរ*), and stacked diacritics all add friction. Everyday communication in Cambodia also mixes Khmer and English freely, and proprietary voice APIs charge per-minute fees that local developers can't afford. Bondeth AI addresses all three with one bilingual suite built on open-source engines.
+Typing Khmer is slow: multi-layered keyboard layouts, sub-consonants (_ជើងអក្សរ_), and stacked diacritics all add friction. Everyday communication in Cambodia also mixes Khmer and English freely, and proprietary voice APIs charge per-minute fees that local developers can't afford. Bondeth AI addresses all three with one bilingual suite built on open-source engines.
 
 ## Features
 
-| Feature | Engine | What it does |
-| --- | --- | --- |
-| **Speech-to-Text** | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). **Live dictation** streams the microphone over a WebSocket and shows text as you speak (needs a GPU to feel real-time; on CPU-only servers set `BONDETH_STT_LIVE_PARTIALS=false`). **14.5% normalized CER on 24 reserved FLEURS Khmer validation clips**, not a full-test-set guarantee; see [accuracy checks and limitations](docs/local-voice-testing.md#khmer-recognition-accuracy) |
-| **Text-to-Speech** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) (quality-first local selection) or [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (fast default) | Reads Khmer, English, or both; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. OmniVoice uses one generic synthetic speaker for bilingual speech, with Khmer-aware timing and 24 kHz output. Repeated phrases are cached. See [quality settings, latency and non-commercial limits](docs/khmer-tts.md) |
-| **Voice cloning** | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) | Uses a consented 3-30 s sample (5-10 s recommended), native-bandwidth reference preparation, editable transcripts and quality-first generation. Runs as a queued job that survives restarts. See [Khmer cloning quality and limits](docs/khmer-voice-cloning.md) |
-| **Accounts & library** | PostgreSQL, Redis, JWT | Sign-in, email verification, password reset by email, account deletion, searchable transcription history with autosaved edits and SRT/VTT subtitle export, saved voices, and a persistent audio library for generated speech and clones |
-| **Developer API keys** | PostgreSQL | Per-app keys (`X-API-Key: bdk_...`) for the whole API, revocable, with daily usage metered per key |
-| **Usage limits** | Redis | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage` |
+| Feature                | Engine                                                                                                                                                                                                                         | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Speech-to-Text**     | [whisper-turbo-khmer-v9](https://huggingface.co/1morecupofhottea/whisper-turbo-khmer-v9) (Khmer, via CTranslate2) + [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3-turbo` (English, language detection) | Transcribes recordings or uploads, auto-detects Khmer vs English, returns clean and word-separated Khmer text with timestamps. Long recordings run as queued jobs that stream segments as they're decoded (Server-Sent Events). **Live dictation** streams the microphone over a WebSocket and shows text as you speak (needs a GPU to feel real-time; on CPU-only servers set `BONDETH_STT_LIVE_PARTIALS=false`). **14.5% normalized CER on 24 reserved FLEURS Khmer validation clips**, not a full-test-set guarantee; see [accuracy checks and limitations](docs/local-voice-testing.md#khmer-recognition-accuracy) |
+| **Text-to-Speech**     | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) (quality-first local selection) or [Meta MMS-TTS](https://huggingface.co/facebook/mms-tts-khm) (fast default)                                                             | Reads Khmer, English, or both; numbers, currencies (`$25` → ម្ភៃប្រាំដុល្លារ), percentages and dates are spelled out. OmniVoice uses one generic synthetic speaker for bilingual speech, with Khmer-aware timing and 24 kHz output. Repeated phrases are cached. See [quality settings, latency and non-commercial limits](docs/khmer-tts.md)                                                                                                                                                                                                                                                                          |
+| **Voice cloning**      | [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)                                                                                                                                                                           | Uses a consented 3-30 s sample (5-10 s recommended), native-bandwidth reference preparation, editable transcripts and quality-first generation. Runs as a queued job that survives restarts. See [Khmer cloning quality and limits](docs/khmer-voice-cloning.md)                                                                                                                                                                                                                                                                                                                                                       |
+| **Accounts & library** | PostgreSQL, Redis, JWT                                                                                                                                                                                                         | Sign-in, email verification, password reset by email, account deletion, searchable transcription history with autosaved edits and SRT/VTT subtitle export, saved voices, and a persistent audio library for generated speech and clones                                                                                                                                                                                                                                                                                                                                                                                |
+| **Developer API keys** | PostgreSQL                                                                                                                                                                                                                     | Per-app keys (`X-API-Key: bdk_...`) for the whole API, revocable, with daily usage metered per key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Usage limits**       | Redis                                                                                                                                                                                                                          | Per-minute rate limits and daily allowances (transcription minutes, characters spoken, clone jobs), shown in the studio sidebar and at `GET /api/v1/usage`                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 The web app is a studio-style Next.js UI with a Khmer/English interface, a remembered language preference, light/dark themes, animations and hand-drawn doodles.
 
@@ -65,12 +83,12 @@ On a Linux server with an NVIDIA GPU (and the NVIDIA Container Toolkit), add the
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up -d --build
 ```
 
-| Service | What it is |
-| --- | --- |
-| `postgres`, `redis` | Database and job queue (always started) |
-| `migrate` | Runs database migrations once, then exits |
-| `backend` | FastAPI + models (CPU image by default, CUDA with the GPU override) |
-| `frontend` | Next.js standalone server |
+| Service             | What it is                                                          |
+| ------------------- | ------------------------------------------------------------------- |
+| `postgres`, `redis` | Database and job queue (always started)                             |
+| `migrate`           | Runs database migrations once, then exits                           |
+| `backend`           | FastAPI + models (CPU image by default, CUDA with the GPU override) |
+| `frontend`          | Next.js standalone server                                           |
 
 ## Local development
 
@@ -93,12 +111,12 @@ Real-model tests are opt-in: `BONDETH_RUN_MODEL_TESTS=1 pytest`. Khmer STT accur
 
 Every caller (the signed-in user, otherwise the client IP) has a per-minute rate limit for each tool and a daily allowance that resets at midnight Cambodia time (UTC+7):
 
-| | Signed out (or email not confirmed) | Signed in, email confirmed |
-| --- | --- | --- |
-| Requests per minute, per tool | 10 | 30 |
-| Speech-to-text | 10 min of audio | 60 min |
-| Text-to-speech | 5,000 characters | 50,000 |
-| Voice cloning | needs an account | 20 jobs |
+|                               | Signed out (or email not confirmed) | Signed in, email confirmed |
+| ----------------------------- | ----------------------------------- | -------------------------- |
+| Requests per minute, per tool | 10                                  | 30                         |
+| Speech-to-text                | 10 min of audio                     | 60 min                     |
+| Text-to-speech                | 5,000 characters                    | 50,000                     |
+| Voice cloning                 | needs an account                    | 20 jobs                    |
 
 Requests made with a developer API key (created under **API keys** in the studio) have their own rate-limit bucket per key (60/min), share the account's daily allowance, and are metered per key and day in PostgreSQL. New accounts get the signed-out allowance, shared per IP, until they confirm their email, and sign-ups are limited to 5 per IP per hour, so creating accounts doesn't reset anyone's allowance. Going over returns `429` with a `Retry-After` header. Failed requests are refunded. All limits are `BONDETH_RATE_LIMIT_*` / `BONDETH_QUOTA_*` settings (see [backend/.env.example](backend/.env.example)), and `BONDETH_LIMITS_ENABLED=false` keeps counting usage without blocking anything. If a reverse proxy sits in front of the backend, set `FORWARDED_ALLOW_IPS` to its address so limits apply to real client IPs.
 
@@ -131,12 +149,12 @@ Public pages include canonical metadata, social cards, structured data, and a si
 
 The engines' **code** is open source, but some **pretrained weights** are non-commercial:
 
-| Component | License |
-| --- | --- |
-| faster-whisper, Whisper `large-v3-turbo`, whisper-turbo-khmer-v9 | MIT |
-| Meta MMS-TTS weights (`facebook/mms-tts-*`) | CC BY-NC 4.0 (non-commercial) |
-| OmniVoice weights | CC BY-NC (non-commercial) |
-| VoxCPM2 weights (`openbmb/VoxCPM2`), optional engine | Apache-2.0 (commercial use OK) |
+| Component                                                        | License                        |
+| ---------------------------------------------------------------- | ------------------------------ |
+| faster-whisper, Whisper `large-v3-turbo`, whisper-turbo-khmer-v9 | MIT                            |
+| Meta MMS-TTS weights (`facebook/mms-tts-*`)                      | CC BY-NC 4.0 (non-commercial)  |
+| OmniVoice weights                                                | CC BY-NC (non-commercial)      |
+| VoxCPM2 weights (`openbmb/VoxCPM2`), optional engine             | Apache-2.0 (commercial use OK) |
 
 Before any paid offering, switch TTS and voice cloning to [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2): set `BONDETH_TTS_ENGINE=voxcpm` and `BONDETH_CLONE_ENGINE=voxcpm`. It supports Khmer, outputs 48 kHz, and wants a CUDA GPU with ~8 GB of VRAM (the GPU Docker image includes it; locally, `pip install -r backend/requirements-voxcpm.txt`). Standard TTS uses a house voice designed once from `BONDETH_VOXCPM_HOUSE_VOICE`. Speed is passed to VoxCPM2 as a style hint, so it's approximate.
 
